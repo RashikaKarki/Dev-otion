@@ -281,31 +281,36 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id && over?.id) {
-      const oldIndex = filteredTasks.findIndex((task) => task.id === active.id);
-      const newIndex = filteredTasks.findIndex((task) => task.id === over.id);
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = filteredTasks.findIndex((task) => task.id === active.id);
+    const newIndex = filteredTasks.findIndex((task) => task.id === over.id);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Simply reorder the current filtered tasks
+    const reorderedFilteredTasks = arrayMove(filteredTasks, oldIndex, newIndex);
+    
+    if (onReorderTasks) {
+      // Create a complete new task array with the reordered filtered tasks
+      const updatedTasks = [...tasks];
       
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reorderedTasks = arrayMove(filteredTasks, oldIndex, newIndex);
-        
-        if (onReorderTasks) {
-          // Create a new array with all tasks, maintaining the new order for filtered tasks
-          const allTasksMap = new Map(tasks.map(task => [task.id, task]));
-          const reorderedAllTasks = [...tasks];
-          
-          // Remove the reordered tasks from their original positions
-          const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
-          const nonFilteredTasks = reorderedAllTasks.filter(task => !filteredTaskIds.has(task.id));
-          
-          // Insert reordered tasks at appropriate positions
-          const finalTasks = [...nonFilteredTasks];
-          reorderedTasks.forEach((task, index) => {
-            finalTasks.splice(index, 0, task);
-          });
-          
-          onReorderTasks(finalTasks);
-        }
-      }
+      // Remove all filtered tasks from their current positions
+      const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
+      const nonFilteredTasks = updatedTasks.filter(task => !filteredTaskIds.has(task.id));
+      
+      // Find where to insert the reordered tasks (maintain original position of first filtered task)
+      const firstFilteredTaskIndex = updatedTasks.findIndex(task => filteredTaskIds.has(task.id));
+      const insertIndex = firstFilteredTaskIndex >= 0 ? firstFilteredTaskIndex : nonFilteredTasks.length;
+      
+      // Create final array: non-filtered tasks + reordered filtered tasks
+      const finalTasks = [
+        ...nonFilteredTasks.slice(0, insertIndex),
+        ...reorderedFilteredTasks,
+        ...nonFilteredTasks.slice(insertIndex)
+      ];
+      
+      onReorderTasks(finalTasks);
     }
   };
 
@@ -345,7 +350,7 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
   const pendingCount = tasks.filter(task => !task.completed).length;
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="flex-1 flex flex-col bg-background overflow-hidden">
       {/* Header */}
       <header className="border-b border-border p-6 bg-card/50">
         <div className="flex items-center justify-between mb-6">
@@ -427,19 +432,20 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
       </header>
 
       {/* Task List */}
-      <ScrollArea className="flex-1 p-6">
-        {filteredTasks.length === 0 ? (
-          <div className="text-center text-muted-foreground py-12">
-            <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">No tasks found</h3>
-            <p className="text-sm">
-              {filter === 'all' 
-                ? "Create your first task to get started"
-                : `No ${filter} tasks to show`
-              }
-            </p>
-          </div>
-        ) : (
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full p-6">
+          {filteredTasks.length === 0 ? (
+            <div className="text-center text-muted-foreground py-12">
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">No tasks found</h3>
+              <p className="text-sm">
+                {filter === 'all' 
+                  ? "Create your first task to get started"
+                  : `No ${filter} tasks to show`
+                }
+              </p>
+            </div>
+          ) : (
           <DndContext 
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -469,9 +475,10 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
                 ))}
               </div>
             </SortableContext>
-          </DndContext>
-        )}
-      </ScrollArea>
+            </DndContext>
+          )}
+        </ScrollArea>
+      </div>
 
       {/* Footer Stats */}
       <footer className="border-t border-border p-4 bg-card/30">

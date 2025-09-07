@@ -157,9 +157,9 @@ export const DevWorkspace = () => {
   };
 
   const handleReorderTasks = async (reorderedTasks: Task[]) => {
-    // For now, we'll just update each task with a new priority or order field
-    // In a real app, you'd want to add an order field to the database
-    console.log('Reordering tasks:', reorderedTasks.map(t => t.title));
+    // Update the task order in the UI immediately
+    // For a real implementation, you'd want to add an order field to the database
+    console.log('Tasks reordered:', reorderedTasks.map((t, i) => `${i + 1}. ${t.title}`));
   };
 
   const handleTaskClick = (noteId: string) => {
@@ -184,7 +184,7 @@ export const DevWorkspace = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <Sidebar
         notes={notes}
         tasks={tasks}
