@@ -499,6 +499,14 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
                 </div>
               ) : null}
 
+              {/* General Insights Section */}
+              <div>
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  General Insights: Knowledge Overview
+                </h4>
+              </div>
+
               {/* Popular Tags */}
               <div>
                 <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
