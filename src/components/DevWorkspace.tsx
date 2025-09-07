@@ -174,36 +174,12 @@ export const DevWorkspace = () => {
     
     if (supabaseNote) {
       setActiveNote(supabaseNote);
-      
-      // Generate embeddings for updated note (background process)
-      // Only generate if content is meaningful (more than 50 characters)
-      if (supabaseNote.content && supabaseNote.content.trim().length > 50) {
-        try {
-          console.log('Generating embeddings for updated note...');
-          await generateEmbeddings(supabaseNote.id, supabaseNote.content, supabaseNote.title);
-          console.log('Embeddings generated successfully');
-        } catch (error) {
-          console.error('Error generating embeddings (background):', error);
-          // Don't show error to user as this is a background process
-          // But we could add a toast for debugging
-          toast({
-            title: "Background Process",
-            description: "Note saved, but embedding generation failed. AI chat may have limited context.",
-            variant: "default",
-          });
-        }
-      }
+      // Embedding generation is now handled automatically in useNotes hook
     }
   };
 
   const handleDeleteNote = async (noteId: string) => {
-    // Delete embeddings first
-    try {
-      await deleteEmbeddings(noteId);
-    } catch (error) {
-      console.error('Error deleting embeddings:', error);
-    }
-    
+    // Embedding deletion is now handled automatically in useNotes hook
     await deleteSupabaseNote(noteId);
     if (activeNote?.id === noteId) {
       setActiveNote(null);

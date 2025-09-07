@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import { useEmbeddings } from './useEmbeddings';
 
 export interface Note {
   id: string;
@@ -18,6 +19,7 @@ export function useNotes() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { generateEmbeddings, deleteEmbeddings } = useEmbeddings();
 
   useEffect(() => {
     if (user) {
@@ -92,6 +94,18 @@ export function useNotes() {
       setNotes(prev => prev.map(note => 
         note.id === noteId ? data : note
       ));
+
+      // Auto-generate embeddings if note content is meaningful
+      if (data.content && data.content.trim().length > 50) {
+        try {
+          console.log('Auto-generating embeddings for updated note...');
+          await generateEmbeddings(data.id, data.content, data.title);
+          console.log('Embeddings generated successfully');
+        } catch (error) {
+          console.warn('Embedding generation failed (non-blocking):', error);
+        }
+      }
+
       return data;
     } catch (error: any) {
       toast({
@@ -105,6 +119,14 @@ export function useNotes() {
 
   const deleteNote = async (noteId: string) => {
     try {
+      // Delete embeddings first
+      try {
+        await deleteEmbeddings(noteId);
+        console.log('Embeddings deleted for note:', noteId);
+      } catch (embeddingError) {
+        console.warn('Error deleting embeddings (non-blocking):', embeddingError);
+      }
+
       const { error } = await supabase
         .from('notes')
         .delete()
@@ -115,7 +137,7 @@ export function useNotes() {
       setNotes(prev => prev.filter(note => note.id !== noteId));
       toast({
         title: "Note deleted",
-        description: "The note has been removed from your workspace",
+        description: "The note and its embeddings have been removed",
       });
     } catch (error: any) {
       toast({
