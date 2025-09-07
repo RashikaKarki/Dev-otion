@@ -63,6 +63,8 @@ export default function Settings() {
         .upsert({
           user_id: user?.id,
           gemini_api_key: geminiApiKey,
+        }, {
+          onConflict: 'user_id'
         });
 
       if (error) throw error;
