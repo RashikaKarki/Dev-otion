@@ -321,28 +321,28 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
     <div className="flex-1 flex flex-col bg-background">
       {/* Header */}
       <header className="border-b border-border p-4 bg-card/50">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-4 flex-1">
-            {onBack && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBack}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Notes
-              </Button>
-            )}
-            <Input
-              ref={titleRef}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={handleSave}
-              placeholder="Note title..."
-              className="text-lg font-semibold bg-transparent border-none p-0 focus-visible:ring-0 flex-1"
-            />
+        {onBack && (
+          <div className="mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Notes
+            </Button>
           </div>
+        )}
+        <div className="flex items-center justify-between mb-4">
+          <Input
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={handleSave}
+            placeholder="Note title..."
+            className="text-lg font-semibold bg-transparent border-none p-0 focus-visible:ring-0 flex-1"
+          />
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
