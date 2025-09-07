@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { EnhancedNoteEditor } from './EnhancedNoteEditor';
+import { NoteViewer } from './NoteViewer';
 import { TaskManager } from './TaskManager';
 import { MindMapViewer } from './MindMapViewer';
 import { NotesListView } from './NotesListView';
@@ -38,6 +39,7 @@ export const DevWorkspace = () => {
   
   const [activeNote, setActiveNote] = useState<SupabaseNote | null>(null);
   const [activeView, setActiveView] = useState<'notes' | 'tasks' | 'mindmap'>('notes');
+  const [noteMode, setNoteMode] = useState<'view' | 'edit'>('view');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [taskOrder, setTaskOrder] = useState<string[]>([]);
   const { toast } = useToast();
@@ -145,6 +147,7 @@ export const DevWorkspace = () => {
     if (newNote) {
       setActiveNote(newNote);
       setActiveView('notes');
+      setNoteMode('edit'); // New notes start in edit mode
     }
   };
 
@@ -285,12 +288,30 @@ export const DevWorkspace = () => {
 
         {activeView === 'notes' && !activeNote && (
           <NotesListView
-            onNoteSelect={(note) => setActiveNote(note)}
+            onNoteSelect={(note) => {
+              setActiveNote(note);
+              setNoteMode('view'); // Notes open in view mode by default
+            }}
             onNewNote={handleCreateNewNote}
           />
         )}
 
-        {activeView === 'notes' && activeNote && (
+        {activeView === 'notes' && activeNote && noteMode === 'view' && (
+          <NoteViewer
+            note={{
+              id: activeNote.id,
+              title: activeNote.title,
+              content: activeNote.content,
+              tags: activeNote.tags,
+              createdAt: new Date(activeNote.created_at),
+              updatedAt: new Date(activeNote.updated_at)
+            }}
+            onEdit={() => setNoteMode('edit')}
+            onBack={() => setActiveNote(null)}
+          />
+        )}
+
+        {activeView === 'notes' && activeNote && noteMode === 'edit' && (
           <EnhancedNoteEditor
             note={{
               id: activeNote.id,
@@ -340,6 +361,7 @@ export const DevWorkspace = () => {
         onNoteSelect={(note) => {
           const supabaseNote = supabaseNotes.find(n => n.id === note.id);
           setActiveNote(supabaseNote || null);
+          setNoteMode('view'); // Command palette opens notes in view mode
           setActiveView('notes');
           setShowCommandPalette(false);
         }}
