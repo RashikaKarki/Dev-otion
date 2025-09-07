@@ -171,21 +171,29 @@ export function AIChat({ onSelectNote }: AIChatProps) {
                       
                       {message.sourceNotes && message.sourceNotes.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-border/30">
-                          <p className="text-xs opacity-75 mb-2 font-medium">Referenced Notes:</p>
-                          <div className="space-y-1">
-                            {message.sourceNotes.map((note) => (
+                          <p className="text-xs opacity-75 mb-2 font-medium">
+                            📚 Referenced from {message.sourceNotes.length} note{message.sourceNotes.length !== 1 ? 's' : ''}:
+                          </p>
+                          <div className="grid gap-1">
+                            {message.sourceNotes.map((note, index) => (
                               <Button
                                 key={note.id}
                                 variant="ghost"
                                 size="sm"
-                                className="h-auto p-2 text-xs justify-start w-full"
+                                className="h-auto p-2 text-xs justify-start w-full hover:bg-accent/50 transition-colors"
                                 onClick={() => onSelectNote?.(note.id)}
                               >
-                                <ExternalLink className="h-3 w-3 mr-2 flex-shrink-0" />
-                                <span className="truncate">{note.title}</span>
+                                <div className="flex items-center space-x-2 w-full">
+                                  <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-60" />
+                                  <span className="truncate font-medium">{note.title}</span>
+                                  <span className="text-xs opacity-50 ml-auto">#{index + 1}</span>
+                                </div>
                               </Button>
                             ))}
                           </div>
+                          <p className="text-xs opacity-50 mt-2">
+                            💡 Click any note to view the full content
+                          </p>
                         </div>
                       )}
                     </div>

@@ -107,7 +107,7 @@ serve(async (req) => {
 
     // Get relevant notes content
     let context = '';
-    let sourceNotes: Array<{id: string, title: string}> = [];
+    let sourceNotes: Array<{id: string, title: string, similarity: number}> = [];
 
     if (matches && matches.length > 0) {
       const noteIds = [...new Set(matches.map((match: any) => match.note_id))];
@@ -119,8 +119,28 @@ serve(async (req) => {
         .eq('user_id', userId);
 
       if (!notesError && notesData) {
-        context = notesData.map(note => `Note: ${note.title}\n${note.content}`).join('\n\n');
-        sourceNotes = notesData.map(note => ({ id: note.id, title: note.title }));
+        // Create context and track note relevance
+        const noteContexts = notesData.map(note => {
+          const noteMatches = matches.filter((match: any) => match.note_id === note.id);
+          const avgSimilarity = noteMatches.reduce((sum: number, match: any) => sum + match.similarity, 0) / noteMatches.length;
+          
+          return {
+            note,
+            similarity: avgSimilarity,
+            contextText: `Note: "${note.title}"\n${note.content}`
+          };
+        });
+
+        // Sort by relevance and create context
+        noteContexts.sort((a, b) => b.similarity - a.similarity);
+        context = noteContexts.map(nc => nc.contextText).join('\n\n');
+        
+        // Track source notes with similarity scores
+        sourceNotes = noteContexts.map(nc => ({
+          id: nc.note.id,
+          title: nc.note.title,
+          similarity: nc.similarity
+        }));
       }
     }
 
@@ -132,15 +152,15 @@ IMPORTANT RULES:
 1. ONLY use information from the provided context below
 2. If the context doesn't contain enough information to answer the question, say "I don't have enough information in your notes to answer this question"
 3. Do not use any external knowledge or make assumptions beyond what's in the context
-4. Always be specific about which parts of the notes you're referencing
+4. When referencing information, mention which note it comes from by using the note title in quotes
 5. Keep responses concise and helpful
 
-Context from your notes:
+Context from your notes (ordered by relevance):
 ${context}
 
 User question: ${message}
 
-Please provide a helpful answer based only on the information in your notes above.`
+Please provide a helpful answer based only on the information in your notes above. When referencing specific information, mention which note it comes from.`
       : `I don't have any relevant information in your notes to answer the question: "${message}"
 
 To get better answers, please add some notes related to this topic so I can help you find information from your personal knowledge base.`;
@@ -167,7 +187,7 @@ To get better answers, please add some notes related to this topic so I can help
 
     return new Response(JSON.stringify({ 
       response,
-      sourceNotes: sourceNotes.slice(0, 3) // Limit to top 3 most relevant notes
+      sourceNotes: sourceNotes.slice(0, 4).map(note => ({ id: note.id, title: note.title })) // Return top 4 most relevant notes
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
