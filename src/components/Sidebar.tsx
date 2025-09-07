@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +6,6 @@ import {
   FileText, 
   CheckSquare, 
   Brain, 
-  Plus, 
   Hash
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -50,7 +48,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewNote,
   onDeleteNote
 }) => {
-  const navigate = useNavigate();
 
   const formatDate = (date: Date) => {
     const now = new Date();
@@ -96,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               "w-full justify-start",
               activeView === 'notes' && "bg-sidebar-primary text-sidebar-primary-foreground"
             )}
-            onClick={() => navigate('/notes')}
+            onClick={() => onViewChange('notes')}
           >
             <FileText className="h-4 w-4 mr-2" />
             Notes

@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { EnhancedNoteEditor } from './EnhancedNoteEditor';
 import { TaskManager } from './TaskManager';
 import { MindMapViewer } from './MindMapViewer';
+import { NotesListView } from './NotesListView';
 import { CommandPalette } from './CommandPalette';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes, Note as SupabaseNote } from '@/hooks/useNotes';
@@ -282,19 +283,26 @@ export const DevWorkspace = () => {
           </div>
         </div>
 
-        {activeView === 'notes' && (
+        {activeView === 'notes' && !activeNote && (
+          <NotesListView
+            onNoteSelect={(note) => setActiveNote(note)}
+            onNewNote={handleCreateNewNote}
+          />
+        )}
+
+        {activeView === 'notes' && activeNote && (
           <EnhancedNoteEditor
-            note={activeNote ? {
+            note={{
               id: activeNote.id,
               title: activeNote.title,
               content: activeNote.content,
               tags: activeNote.tags,
               createdAt: new Date(activeNote.created_at),
               updatedAt: new Date(activeNote.updated_at)
-            } : null}
+            }}
             onNoteUpdate={handleUpdateNote}
             onToggleTask={handleToggleTask}
-            linkedTasks={activeNote ? tasks.filter(task => task.linkedNoteId === activeNote.id) : []}
+            linkedTasks={tasks.filter(task => task.linkedNoteId === activeNote.id)}
           />
         )}
         

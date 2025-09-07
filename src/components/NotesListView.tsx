@@ -1,7 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
 import { useNotes, Note as BaseNote } from '@/hooks/useNotes';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,8 +10,6 @@ import {
   Plus, 
   FileText, 
   Calendar, 
-  Tag, 
-  ArrowLeft,
   Filter,
   SortAsc,
   SortDesc,
@@ -28,22 +24,18 @@ interface NoteWithSearch extends BaseNote {
   searchScore?: number;
 }
 
-export default function Notes() {
-  const navigate = useNavigate();
-  const { notes, createNote } = useNotes();
-  const { user, loading } = useAuth();
+interface NotesListViewProps {
+  onNoteSelect: (note: BaseNote) => void;
+  onNewNote: () => void;
+}
+
+export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
+  const { notes } = useNotes();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'title' | 'relevance'>('updated');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterTag, setFilterTag] = useState<string>('all');
-
-  // Authentication check
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
 
   // Extract all unique tags
   const allTags = useMemo(() => {
@@ -138,22 +130,6 @@ export default function Notes() {
     currentPage * ITEMS_PER_PAGE
   );
 
-  const handleCreateNote = async () => {
-    const newNote = await createNote({
-      title: 'Untitled Note',
-      content: '',
-      tags: []
-    });
-    
-    if (newNote) {
-      navigate(`/note/${newNote.id}`);
-    }
-  };
-
-  const handleNoteClick = (noteId: string) => {
-    navigate(`/note/${noteId}`);
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -175,47 +151,22 @@ export default function Notes() {
       : content;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50 animate-pulse" />
-          <h2 className="text-lg font-medium mb-2">Loading...</h2>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null; // Will redirect via useEffect
-  }
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex-1 bg-background">
       {/* Header */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/')}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-              <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <FileText className="h-4 w-4 text-primary-foreground" />
-                </div>
-                <h1 className="text-2xl font-bold gradient-text">Notes</h1>
-                <Badge variant="secondary" className="ml-2">
-                  {notes.length}
-                </Badge>
+            <div className="flex items-center space-x-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+                <FileText className="h-4 w-4 text-primary-foreground" />
               </div>
+              <h1 className="text-2xl font-bold gradient-text">Notes</h1>
+              <Badge variant="secondary" className="ml-2">
+                {notes.length}
+              </Badge>
             </div>
-            <Button onClick={handleCreateNote} className="bg-primary hover:bg-primary/90">
+            <Button onClick={onNewNote} className="bg-primary hover:bg-primary/90">
               <Plus className="h-4 w-4 mr-2" />
               New Note
             </Button>
@@ -223,7 +174,7 @@ export default function Notes() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="px-6 py-6">
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <div className="relative">
@@ -314,7 +265,7 @@ export default function Notes() {
                 : 'Create your first note to get started'
               }
             </p>
-            <Button onClick={handleCreateNote}>
+            <Button onClick={onNewNote}>
               <Plus className="h-4 w-4 mr-2" />
               Create Note
             </Button>
@@ -325,7 +276,7 @@ export default function Notes() {
               <Card 
                 key={note.id} 
                 className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-border/50 hover:border-primary/20"
-                onClick={() => handleNoteClick(note.id)}
+                onClick={() => onNoteSelect(note)}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
