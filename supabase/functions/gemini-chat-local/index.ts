@@ -11,14 +11,6 @@ interface ChatRequest {
   message: string;
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface ChatRequest {
-  message: string;
-}
 
 // Pure local embedding function - no external dependencies or API calls
 function generateLocalEmbedding(text: string): number[] {

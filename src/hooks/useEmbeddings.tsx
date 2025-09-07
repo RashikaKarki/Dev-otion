@@ -7,7 +7,7 @@ export function useEmbeddings() {
   const { hasGeminiApiKey } = useSettings();
 
   const generateEmbeddings = async (noteId: string, content: string, title: string) => {
-    // No API key needed for HuggingFace embeddings, but we'll keep the check for consistency
+    // No API key needed for local embeddings
     if (!user) {
       console.warn('Cannot generate embeddings: user not authenticated');
       return null;
@@ -16,7 +16,7 @@ export function useEmbeddings() {
     console.log(`Starting embedding generation for note "${title}"`);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-embeddings-hf', {
+      const { data, error } = await supabase.functions.invoke('generate-embeddings-local', {
         body: {
           noteId,
           content,

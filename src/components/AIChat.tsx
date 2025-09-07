@@ -56,7 +56,7 @@ export function AIChat({ onSelectNote }: AIChatProps) {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('gemini-chat-hf', {
+      const { data, error } = await supabase.functions.invoke('gemini-chat-local', {
         body: {
           message: userMessage.content
         }
