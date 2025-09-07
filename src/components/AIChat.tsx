@@ -58,8 +58,7 @@ export function AIChat({ onSelectNote }: AIChatProps) {
     try {
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
-          message: userMessage.content,
-          userId: user.id
+          message: userMessage.content
         }
       });
 

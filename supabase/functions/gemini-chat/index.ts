@@ -9,7 +9,6 @@ const corsHeaders = {
 
 interface ChatRequest {
   message: string;
-  userId: string;
 }
 
 interface EmbeddingMatch {
@@ -25,16 +24,31 @@ serve(async (req) => {
   }
 
   try {
-    const { message, userId }: ChatRequest = await req.json();
+    const { message }: ChatRequest = await req.json();
     
-    if (!message || !userId) {
-      throw new Error('Message and userId are required');
+    if (!message) {
+      throw new Error('Message is required');
     }
 
-    // Create Supabase client
+    // Create Supabase client with auth context
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get authenticated user from JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Authorization header required');
+    }
+
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+    
+    if (userError || !user) {
+      throw new Error('Invalid authentication token');
+    }
+
+    const userId = user.id;
 
     // Get user's Gemini API key
     const { data: settingsData, error: settingsError } = await supabase

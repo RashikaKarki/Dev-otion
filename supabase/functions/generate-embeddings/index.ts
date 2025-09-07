@@ -9,7 +9,6 @@ const corsHeaders = {
 
 interface EmbeddingRequest {
   noteId: string;
-  userId: string;
   content: string;
   title: string;
 }
@@ -21,16 +20,42 @@ serve(async (req) => {
   }
 
   try {
-    const { noteId, userId, content, title }: EmbeddingRequest = await req.json();
+    const { noteId, content, title }: EmbeddingRequest = await req.json();
     
-    if (!noteId || !userId || !content) {
-      throw new Error('noteId, userId, and content are required');
+    if (!noteId || !content) {
+      throw new Error('noteId and content are required');
     }
 
-    // Create Supabase client
+    // Create Supabase client with auth context
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get authenticated user from JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Authorization header required');
+    }
+
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+    
+    if (userError || !user) {
+      throw new Error('Invalid authentication token');
+    }
+
+    const userId = user.id;
+
+    // Verify the note belongs to the authenticated user
+    const { data: noteData, error: noteError } = await supabase
+      .from('notes')
+      .select('user_id')
+      .eq('id', noteId)
+      .single();
+
+    if (noteError || !noteData || noteData.user_id !== userId) {
+      throw new Error('Note not found or access denied');
+    }
 
     // Get user's Gemini API key
     const { data: settingsData, error: settingsError } = await supabase

@@ -15,7 +15,6 @@ export function useEmbeddings() {
       const { data, error } = await supabase.functions.invoke('generate-embeddings', {
         body: {
           noteId,
-          userId: user.id,
           content,
           title
         }
