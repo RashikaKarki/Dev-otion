@@ -170,7 +170,8 @@ serve(async (req) => {
     }
 
     // Generate response using Gemini
-    const prompt =` You are an AI assistant that ONLY answers questions based on the user's provided notes. Your role is to help users find information from their personal note collection.
+    const prompt = context 
+      ? `You are an AI assistant that ONLY answers questions based on the user's provided notes. Your role is to help users find information from their personal note collection.
 
 IMPORTANT RULES:
 1. ONLY use information from the provided context below
@@ -178,13 +179,15 @@ IMPORTANT RULES:
 3. Do not use any external knowledge or make assumptions beyond what's in the context
 4. When referencing information, mention which note it comes from by using the note title in quotes
 5. Keep responses concise and helpful
+6. If you find relevant information but it's incomplete, acknowledge what you found and mention what's missing
 
 Context from your notes (ordered by relevance):
 ${context}
 
 User question: ${message}
 
-Please provide a helpful answer based only on the information in the given context. When referencing specific information, mention which note it comes from.`
+Please provide a helpful answer based only on the information in your notes above. When referencing specific information, mention which note it comes from.`
+      : `Reply with: No notes available so I can't answer this question.`;
 
     console.log('Context available:', !!context);
     console.log('Source notes count:', sourceNotes.length);
