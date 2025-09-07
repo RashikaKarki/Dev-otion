@@ -308,6 +308,7 @@ export const DevWorkspace = () => {
             }}
             onEdit={() => setNoteMode('edit')}
             onBack={() => setActiveNote(null)}
+            onDelete={handleDeleteNote}
           />
         )}
 

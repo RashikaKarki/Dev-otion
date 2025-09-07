@@ -6,6 +6,17 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { 
   Search, 
   Plus, 
@@ -15,8 +26,16 @@ import {
   SortAsc,
   SortDesc,
   Clock,
-  Hash
+  Hash,
+  Trash2,
+  MoreVertical
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 12;
@@ -31,7 +50,7 @@ interface NotesListViewProps {
 }
 
 export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
-  const { notes } = useNotes();
+  const { notes, deleteNote } = useNotes();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'title' | 'relevance'>('updated');
@@ -277,21 +296,73 @@ export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
             {paginatedResults.map((note) => (
               <Card 
                 key={note.id} 
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-border/50 hover:border-primary/20"
-                onClick={() => onNoteSelect(note)}
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-border/50 hover:border-primary/20 group"
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
-                    <h3 className="font-semibold text-base line-clamp-1 flex-1">
+                    <h3 
+                      className="font-semibold text-base line-clamp-1 flex-1 cursor-pointer"
+                      onClick={() => onNoteSelect(note)}
+                    >
                       {note.title || 'Untitled'}
                     </h3>
-                    {searchQuery.trim() && note.searchScore && note.searchScore > 0 && (
-                      <Badge variant="secondary" className="text-xs ml-2">
-                        {note.searchScore > 20 ? 'Exact' : note.searchScore > 10 ? 'High' : 'Match'}
-                      </Badge>
-                    )}
+                    <div className="flex items-center space-x-1">
+                      {searchQuery.trim() && note.searchScore && note.searchScore > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {note.searchScore > 20 ? 'Exact' : note.searchScore > 10 ? 'High' : 'Match'}
+                        </Badge>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onNoteSelect(note)}>
+                            View Note
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive"
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Note
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{note.title || 'Untitled Note'}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteNote(note.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete Note
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                  <div className="flex items-center text-xs text-muted-foreground space-x-4">
+                  <div 
+                    className="flex items-center text-xs text-muted-foreground space-x-4 cursor-pointer"
+                    onClick={() => onNoteSelect(note)}
+                  >
                     <div className="flex items-center space-x-1">
                       <Clock className="h-3 w-3" />
                       <span>{formatDate(note.updated_at)}</span>
@@ -302,7 +373,10 @@ export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent 
+                  className="pt-0 cursor-pointer"
+                  onClick={() => onNoteSelect(note)}
+                >
                   <p className="text-sm text-muted-foreground line-clamp-3 mb-3 min-h-[3.6rem]">
                     {getContentPreview(note.content)}
                   </p>

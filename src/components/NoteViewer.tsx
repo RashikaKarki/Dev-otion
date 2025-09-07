@@ -3,13 +3,25 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { 
   Edit3, 
   Calendar, 
   Clock, 
   Tag,
   ArrowLeft,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,9 +38,10 @@ interface NoteViewerProps {
   note: Note;
   onEdit: () => void;
   onBack: () => void;
+  onDelete?: (noteId: string) => void;
 }
 
-export function NoteViewer({ note, onEdit, onBack }: NoteViewerProps) {
+export function NoteViewer({ note, onEdit, onBack, onDelete }: NoteViewerProps) {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -108,10 +121,39 @@ export function NoteViewer({ note, onEdit, onBack }: NoteViewerProps) {
                 </h1>
               </div>
             </div>
-            <Button onClick={onEdit} className="bg-primary hover:bg-primary/90">
-              <Edit3 className="h-4 w-4 mr-2" />
-              Edit Note
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button onClick={onEdit} className="bg-primary hover:bg-primary/90">
+                <Edit3 className="h-4 w-4 mr-2" />
+                Edit Note
+              </Button>
+              {onDelete && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete "{note.title || 'Untitled Note'}"? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => onDelete(note.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete Note
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
         </div>
       </div>
