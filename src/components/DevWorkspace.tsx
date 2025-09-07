@@ -4,8 +4,14 @@ import { EnhancedNoteEditor } from './EnhancedNoteEditor';
 import { TaskManager } from './TaskManager';
 import { MindMapViewer } from './MindMapViewer';
 import { CommandPalette } from './CommandPalette';
+import { useAuth } from '@/hooks/useAuth';
+import { useNotes, Note as SupabaseNote } from '@/hooks/useNotes';
+import { useTasks, Task as SupabaseTask } from '@/hooks/useTasks';
+import { Button } from '@/components/ui/button';
+import { LogOut, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+// Legacy interfaces for compatibility with existing components
 interface Note {
   id: string;
   title: string;
@@ -25,12 +31,33 @@ interface Task {
 }
 
 export const DevWorkspace = () => {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [activeNote, setActiveNote] = useState<Note | null>(null);
+  const { user, signOut } = useAuth();
+  const { notes: supabaseNotes, createNote, updateNote: updateSupabaseNote, deleteNote: deleteSupabaseNote } = useNotes();
+  const { tasks: supabaseTasks, createTask: createSupabaseTask, updateTask: updateSupabaseTask, deleteTask: deleteSupabaseTask, toggleTask: toggleSupabaseTask } = useTasks();
+  
+  const [activeNote, setActiveNote] = useState<SupabaseNote | null>(null);
   const [activeView, setActiveView] = useState<'notes' | 'tasks' | 'mindmap'>('notes');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const { toast } = useToast();
+
+  // Convert Supabase data to legacy format for compatibility with existing components
+  const notes: Note[] = supabaseNotes.map(note => ({
+    id: note.id,
+    title: note.title,
+    content: note.content,
+    tags: note.tags,
+    createdAt: new Date(note.created_at),
+    updatedAt: new Date(note.updated_at)
+  }));
+
+  const tasks: Task[] = supabaseTasks.map(task => ({
+    id: task.id,
+    title: task.title,
+    completed: task.completed,
+    priority: task.priority,
+    createdAt: new Date(task.created_at),
+    linkedNoteId: task.linked_note_id
+  }));
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -43,7 +70,7 @@ export const DevWorkspace = () => {
             break;
           case 'n':
             e.preventDefault();
-            createNewNote();
+            handleCreateNewNote();
             break;
           case '1':
             e.preventDefault();
@@ -69,165 +96,146 @@ export const DevWorkspace = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const createNewNote = () => {
-    const newNote: Note = {
-      id: crypto.randomUUID(),
+  const handleCreateNewNote = async () => {
+    const newNote = await createNote({
       title: 'Untitled Note',
       content: '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
       tags: []
-    };
-    setNotes(prev => [newNote, ...prev]);
-    setActiveNote(newNote);
-    setActiveView('notes');
-    toast({
-      title: "New note created",
-      description: "Start typing to add content",
     });
+    
+    if (newNote) {
+      setActiveNote(newNote);
+      setActiveView('notes');
+    }
   };
 
-  const updateNote = (updatedNote: Note) => {
-    setNotes(prev => prev.map(note => 
-      note.id === updatedNote.id 
-        ? { ...updatedNote, updatedAt: new Date() }
-        : note
-    ));
-    setActiveNote(updatedNote);
+  const handleUpdateNote = async (updatedNote: Note) => {
+    const supabaseNote = await updateSupabaseNote(updatedNote.id, {
+      title: updatedNote.title,
+      content: updatedNote.content,
+      tags: updatedNote.tags
+    });
+    
+    if (supabaseNote) {
+      setActiveNote(supabaseNote);
+    }
   };
 
-  const deleteNote = (noteId: string) => {
-    setNotes(prev => prev.filter(note => note.id !== noteId));
+  const handleDeleteNote = async (noteId: string) => {
+    await deleteSupabaseNote(noteId);
     if (activeNote?.id === noteId) {
       setActiveNote(null);
     }
-    toast({
-      title: "Note deleted",
-      description: "The note has been removed from your workspace",
-    });
   };
 
-  const createNewTask = (title: string, priority: 'low' | 'medium' | 'high' = 'medium') => {
-    const newTask: Task = {
-      id: crypto.randomUUID(),
+  const handleCreateNewTask = async (title: string, priority: 'low' | 'medium' | 'high' = 'medium') => {
+    await createSupabaseTask({
       title,
-      completed: false,
-      priority,
-      createdAt: new Date()
-    };
-    setTasks(prev => [newTask, ...prev]);
-    toast({
-      title: "Task created",
-      description: title,
+      priority
     });
   };
 
-  const toggleTask = (taskId: string) => {
-    setTasks(prev => prev.map(task =>
-      task.id === taskId 
-        ? { ...task, completed: !task.completed }
-        : task
-    ));
+  const handleToggleTask = async (taskId: string) => {
+    await toggleSupabaseTask(taskId);
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(task => task.id !== taskId));
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteSupabaseTask(taskId);
   };
 
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(task =>
-      task.id === taskId ? { ...task, ...updates } : task
-    ));
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    await updateSupabaseTask(taskId, {
+      title: updates.title,
+      completed: updates.completed,
+      priority: updates.priority
+    });
   };
 
   const handleTaskClick = (noteId: string) => {
-    const note = notes.find(n => n.id === noteId);
+    const note = supabaseNotes.find(n => n.id === noteId);
     if (note) {
       setActiveNote(note);
       setActiveView('notes');
     }
   };
 
-  // Extract tasks from notes
-  const extractTasksFromNotes = () => {
-    const noteTasks: Task[] = [];
-    notes.forEach(note => {
-      const taskRegex = /- \[ \] (.+)|^\s*\* \[ \] (.+)|^\s*- \[ \] (.+)/gm;
-      let match;
-      while ((match = taskRegex.exec(note.content)) !== null) {
-        const taskTitle = match[1] || match[2] || match[3];
-        if (taskTitle && !tasks.some(t => t.title === taskTitle.trim() && t.linkedNoteId === note.id)) {
-          noteTasks.push({
-            id: crypto.randomUUID(),
-            title: taskTitle.trim(),
-            completed: false,
-            priority: 'medium',
-            createdAt: new Date(),
-            linkedNoteId: note.id
-          });
-        }
-      }
+  const handleCreateTaskFromNote = async (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId?: string) => {
+    await createSupabaseTask({
+      title,
+      priority,
+      linked_note_id: linkedNoteId
     });
-    
-    if (noteTasks.length > 0) {
-      setTasks(prev => [...noteTasks, ...prev]);
-      toast({
-        title: "Tasks extracted",
-        description: `Found ${noteTasks.length} tasks in your notes`,
-      });
-    }
   };
 
-  // Auto-extract tasks when notes change
-  useEffect(() => {
-    if (notes.length > 0) {
-      extractTasksFromNotes();
-    }
-  }, [notes.map(n => n.content).join('')]);
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <div className="flex h-screen bg-background text-foreground">
       <Sidebar
         notes={notes}
         tasks={tasks}
-        activeNote={activeNote}
+        activeNote={activeNote ? {
+          id: activeNote.id,
+          title: activeNote.title,
+          content: activeNote.content,
+          tags: activeNote.tags,
+          createdAt: new Date(activeNote.created_at),
+          updatedAt: new Date(activeNote.updated_at)
+        } : null}
         activeView={activeView}
-        onNoteSelect={setActiveNote}
+        onNoteSelect={(note) => {
+          const supabaseNote = supabaseNotes.find(n => n.id === note.id);
+          setActiveNote(supabaseNote || null);
+        }}
         onViewChange={setActiveView}
-        onNewNote={createNewNote}
-        onDeleteNote={deleteNote}
+        onNewNote={handleCreateNewNote}
+        onDeleteNote={handleDeleteNote}
       />
       
       <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Header with user info and logout */}
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-semibold">Dev-otion</h1>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <User className="h-4 w-4" />
+                <span>{user?.email}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {activeView === 'notes' && (
           <EnhancedNoteEditor
-            note={activeNote}
-            onNoteUpdate={updateNote}
-            onCreateTask={(title, priority, linkedNoteId) => {
-              const newTask: Task = {
-                id: crypto.randomUUID(),
-                title,
-                completed: false,
-                priority,
-                createdAt: new Date(),
-                linkedNoteId
-              };
-              setTasks(prev => [newTask, ...prev]);
-              toast({
-                title: "Task created",
-                description: `"${title}" linked to note`,
-              });
-            }}
+            note={activeNote ? {
+              id: activeNote.id,
+              title: activeNote.title,
+              content: activeNote.content,
+              tags: activeNote.tags,
+              createdAt: new Date(activeNote.created_at),
+              updatedAt: new Date(activeNote.updated_at)
+            } : null}
+            onNoteUpdate={handleUpdateNote}
+            onCreateTask={handleCreateTaskFromNote}
           />
         )}
         
         {activeView === 'tasks' && (
           <TaskManager
             tasks={tasks}
-            onCreateTask={createNewTask}
-            onToggleTask={toggleTask}
-            onDeleteTask={deleteTask}
-            onUpdateTask={updateTask}
+            onCreateTask={handleCreateNewTask}
+            onToggleTask={handleToggleTask}
+            onDeleteTask={handleDeleteTask}
+            onUpdateTask={handleUpdateTask}
             onTaskClick={handleTaskClick}
           />
         )}
@@ -235,7 +243,14 @@ export const DevWorkspace = () => {
         {activeView === 'mindmap' && (
           <MindMapViewer
             notes={notes}
-            activeNote={activeNote}
+            activeNote={activeNote ? {
+              id: activeNote.id,
+              title: activeNote.title,
+              content: activeNote.content,
+              tags: activeNote.tags,
+              createdAt: new Date(activeNote.created_at),
+              updatedAt: new Date(activeNote.updated_at)
+            } : null}
           />
         )}
       </main>
@@ -245,12 +260,13 @@ export const DevWorkspace = () => {
         onClose={() => setShowCommandPalette(false)}
         notes={notes}
         onNoteSelect={(note) => {
-          setActiveNote(note);
+          const supabaseNote = supabaseNotes.find(n => n.id === note.id);
+          setActiveNote(supabaseNote || null);
           setActiveView('notes');
           setShowCommandPalette(false);
         }}
         onNewNote={() => {
-          createNewNote();
+          handleCreateNewNote();
           setShowCommandPalette(false);
         }}
       />
