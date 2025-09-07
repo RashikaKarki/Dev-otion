@@ -283,14 +283,14 @@ export const InteractiveMindMap: React.FC<InteractiveMindMapProps> = ({
       .enter().append("line")
       .attr("stroke", (d) => {
         switch (d.type) {
-          case 'semantic': return '#8b5cf6';
-          case 'tag': return '#10b981';
-          case 'keyword': return '#f59e0b';
-          default: return '#6b7280';
+          case 'semantic': return 'hsl(var(--primary))';
+          case 'tag': return 'hsl(var(--success))';
+          case 'keyword': return 'hsl(var(--warning))';
+          default: return 'hsl(var(--muted-foreground))';
         }
       })
-      .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", (d) => Math.sqrt(d.strength * 5));
+      .attr("stroke-opacity", 0.7)
+      .attr("stroke-width", (d) => Math.sqrt(d.strength * 6));
 
     // Create nodes
     const node = g.append("g")
@@ -306,16 +306,16 @@ export const InteractiveMindMap: React.FC<InteractiveMindMapProps> = ({
         }
       })
       .attr("fill", (d) => {
-        if (activeNote && d.id === activeNote.id) return '#ef4444';
+        if (activeNote && d.id === activeNote.id) return 'hsl(var(--destructive))';
         switch (d.type) {
-          case 'note': return '#3b82f6';
-          case 'tag': return '#10b981';
-          case 'keyword': return '#f59e0b';
-          default: return '#6b7280';
+          case 'note': return 'hsl(var(--primary))';
+          case 'tag': return 'hsl(var(--success))';
+          case 'keyword': return 'hsl(var(--warning))';
+          default: return 'hsl(var(--muted-foreground))';
         }
       })
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2)
+      .attr("stroke", "hsl(var(--background))")
+      .attr("stroke-width", 3)
       .style("cursor", "pointer")
       .call(d3.drag<SVGCircleElement, MindMapNode>()
         .on("start", (event, d) => {
@@ -350,7 +350,8 @@ export const InteractiveMindMap: React.FC<InteractiveMindMapProps> = ({
       .attr("dx", 15)
       .attr("dy", 4)
       .style("font-weight", (d) => d.type === 'note' ? 'bold' : 'normal')
-      .style("fill", (d) => d.type === 'note' ? '#1f2937' : '#6b7280')
+      .style("fill", "hsl(var(--foreground))")
+      .style("text-shadow", "0 0 3px hsl(var(--background)), 0 0 6px hsl(var(--background))")
       .style("pointer-events", "none");
 
     // Add click handlers
@@ -479,19 +480,19 @@ export const InteractiveMindMap: React.FC<InteractiveMindMapProps> = ({
             <div className="font-medium mb-2">Legend</div>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }}></div>
                 <span>Notes</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--success))' }}></div>
                 <span>Tags</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--warning))' }}></div>
                 <span>Keywords</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--destructive))' }}></div>
                 <span>Active</span>
               </div>
             </div>
