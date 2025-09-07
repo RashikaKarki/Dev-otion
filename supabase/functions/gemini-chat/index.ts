@@ -68,7 +68,9 @@ serve(async (req) => {
 
     const geminiApiKey = settingsData.gemini_api_key;
 
-    // Generate embedding for the user's message
+    console.log(`Processing chat request from user ${userId}: "${message}"`);
+
+    // Generate embedding for the user's message with optimized parameters
     const embeddingResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`,
       {
@@ -78,25 +80,30 @@ serve(async (req) => {
           model: "models/text-embedding-004",
           content: {
             parts: [{ text: message }]
-          }
+          },
+          taskType: "RETRIEVAL_QUERY" // Optimize for query retrieval
         })
       }
     );
 
     if (!embeddingResponse.ok) {
+      const errorText = await embeddingResponse.text();
+      console.error('Embedding API error:', embeddingResponse.status, errorText);
       throw new Error(`Embedding API error: ${embeddingResponse.statusText}`);
     }
 
     const embeddingData = await embeddingResponse.json();
     const queryEmbedding = embeddingData.embedding.values;
+    console.log(`Generated query embedding with ${queryEmbedding.length} dimensions`);
 
-    // Search for similar embeddings using vector similarity
+    // Search for similar embeddings using vector similarity with lower threshold
+    console.log('Searching for similar embeddings...');
     const { data: matches, error: searchError } = await supabase.rpc(
       'match_embeddings',
       {
         query_embedding: queryEmbedding,
-        match_threshold: 0.3,
-        match_count: 5,
+        match_threshold: 0.1, // Lowered threshold for better recall
+        match_count: 8,       // Increased count for more context
         user_id: userId
       }
     );
@@ -105,12 +112,16 @@ serve(async (req) => {
       console.error('Search error:', searchError);
     }
 
+    console.log(`Found ${matches?.length || 0} matching chunks`);
+
     // Get relevant notes content
     let context = '';
     let sourceNotes: Array<{id: string, title: string, similarity: number}> = [];
 
     if (matches && matches.length > 0) {
+      console.log(`Processing ${matches.length} matches`);
       const noteIds = [...new Set(matches.map((match: any) => match.note_id))];
+      console.log(`Fetching ${noteIds.length} unique notes`);
       
       const { data: notesData, error: notesError } = await supabase
         .from('notes')
@@ -119,21 +130,29 @@ serve(async (req) => {
         .eq('user_id', userId);
 
       if (!notesError && notesData) {
+        console.log(`Retrieved ${notesData.length} notes from database`);
+        
         // Create context and track note relevance
         const noteContexts = notesData.map(note => {
           const noteMatches = matches.filter((match: any) => match.note_id === note.id);
           const avgSimilarity = noteMatches.reduce((sum: number, match: any) => sum + match.similarity, 0) / noteMatches.length;
           
+          // Include relevant chunks from this note
+          const relevantChunks = noteMatches
+            .sort((a: any, b: any) => b.similarity - a.similarity)
+            .slice(0, 3) // Top 3 chunks per note
+            .map((match: any) => match.content_chunk);
+          
           return {
             note,
             similarity: avgSimilarity,
-            contextText: `Note: "${note.title}"\n${note.content}`
+            contextText: `Note: "${note.title}"\nContent: ${relevantChunks.join('\n...\n')}`
           };
         });
 
         // Sort by relevance and create context
         noteContexts.sort((a, b) => b.similarity - a.similarity);
-        context = noteContexts.map(nc => nc.contextText).join('\n\n');
+        context = noteContexts.map(nc => nc.contextText).join('\n\n---\n\n');
         
         // Track source notes with similarity scores
         sourceNotes = noteContexts.map(nc => ({
@@ -141,7 +160,13 @@ serve(async (req) => {
           title: nc.note.title,
           similarity: nc.similarity
         }));
+        
+        console.log(`Created context from ${noteContexts.length} notes, total length: ${context.length} chars`);
+      } else {
+        console.error('Error fetching notes:', notesError);
       }
+    } else {
+      console.log('No matching embeddings found');
     }
 
     // Generate response using Gemini
@@ -168,6 +193,7 @@ Please provide a helpful answer based only on the information in your notes abov
 
     console.log('Context available:', !!context);
     console.log('Source notes count:', sourceNotes.length);
+    console.log('Sending request to Gemini...');
 
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
@@ -188,10 +214,22 @@ Please provide a helpful answer based only on the information in your notes abov
 
     const geminiData = await geminiResponse.json();
     const response = geminiData.candidates[0].content.parts[0].text;
+    
+    console.log(`Generated response: ${response.length} characters`);
+    console.log(`Returning ${sourceNotes.slice(0, 4).length} source notes`);
 
     return new Response(JSON.stringify({ 
       response,
-      sourceNotes: sourceNotes.slice(0, 4).map(note => ({ id: note.id, title: note.title })) // Return top 4 most relevant notes
+      sourceNotes: sourceNotes.slice(0, 4).map(note => ({ 
+        id: note.id, 
+        title: note.title,
+        similarity: Math.round(note.similarity * 100) / 100 // Round similarity for debugging
+      })),
+      debug: {
+        totalMatches: matches?.length || 0,
+        contextLength: context.length,
+        hasContext: !!context
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

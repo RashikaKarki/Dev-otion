@@ -148,6 +148,7 @@ export const DevWorkspace = () => {
   }, [supabaseTasks, taskOrder.length]);
 
   const handleCreateNewNote = async () => {
+    console.log('Creating new note...');
     const newNote = await createNote({
       title: 'Untitled Note',
       content: '',
@@ -155,6 +156,7 @@ export const DevWorkspace = () => {
     });
     
     if (newNote) {
+      console.log('New note created:', newNote.id);
       setActiveNote(newNote);
       setActiveView('notes');
       setNoteMode('edit'); // New notes start in edit mode
@@ -162,6 +164,8 @@ export const DevWorkspace = () => {
   };
 
   const handleUpdateNote = async (updatedNote: Note) => {
+    console.log('Updating note:', updatedNote.title);
+    
     const supabaseNote = await updateSupabaseNote(updatedNote.id, {
       title: updatedNote.title,
       content: updatedNote.content,
@@ -172,11 +176,22 @@ export const DevWorkspace = () => {
       setActiveNote(supabaseNote);
       
       // Generate embeddings for updated note (background process)
-      try {
-        await generateEmbeddings(supabaseNote.id, supabaseNote.content, supabaseNote.title);
-      } catch (error) {
-        console.error('Error generating embeddings:', error);
-        // Don't show error to user as this is a background process
+      // Only generate if content is meaningful (more than 50 characters)
+      if (supabaseNote.content && supabaseNote.content.trim().length > 50) {
+        try {
+          console.log('Generating embeddings for updated note...');
+          await generateEmbeddings(supabaseNote.id, supabaseNote.content, supabaseNote.title);
+          console.log('Embeddings generated successfully');
+        } catch (error) {
+          console.error('Error generating embeddings (background):', error);
+          // Don't show error to user as this is a background process
+          // But we could add a toast for debugging
+          toast({
+            title: "Background Process",
+            description: "Note saved, but embedding generation failed. AI chat may have limited context.",
+            variant: "default",
+          });
+        }
       }
     }
   };

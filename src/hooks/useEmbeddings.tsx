@@ -8,8 +8,11 @@ export function useEmbeddings() {
 
   const generateEmbeddings = async (noteId: string, content: string, title: string) => {
     if (!user || !hasGeminiApiKey()) {
-      throw new Error('User not authenticated or Gemini API key not configured');
+      console.warn('Cannot generate embeddings: user not authenticated or API key missing');
+      return null;
     }
+
+    console.log(`Starting embedding generation for note "${title}"`);
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-embeddings', {
@@ -20,11 +23,16 @@ export function useEmbeddings() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Embedding generation error:', error);
+        throw error;
+      }
+
+      console.log('Embedding generation successful:', data);
       return data;
     } catch (error: any) {
       console.error('Error generating embeddings:', error);
-      throw error;
+      throw new Error(`Failed to generate embeddings: ${error.message}`);
     }
   };
 

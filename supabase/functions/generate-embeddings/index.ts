@@ -45,17 +45,22 @@ serve(async (req) => {
     }
 
     const userId = user.id;
+    
+    console.log(`Starting embedding generation for note ${noteId}, user ${userId}`);
 
     // Verify the note belongs to the authenticated user
     const { data: noteData, error: noteError } = await supabase
       .from('notes')
-      .select('user_id')
+      .select('user_id, title, content')
       .eq('id', noteId)
       .single();
 
     if (noteError || !noteData || noteData.user_id !== userId) {
+      console.error('Note verification failed:', noteError || 'Access denied');
       throw new Error('Note not found or access denied');
     }
+
+    console.log(`Note verified: "${noteData.title}" (${noteData.content.length} chars)`);
 
     // Get user's Gemini API key
     const { data: settingsData, error: settingsError } = await supabase
@@ -65,43 +70,52 @@ serve(async (req) => {
       .single();
 
     if (settingsError || !settingsData?.gemini_api_key) {
-      return new Response(JSON.stringify({ 
-        error: 'Gemini API key not found. Please add your API key in settings.' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error('API key error:', settingsError);
+      throw new Error('Gemini API key not found. Please add your API key in settings.');
     }
 
     const geminiApiKey = settingsData.gemini_api_key;
+    console.log('API key retrieved successfully');
 
     // First, delete existing embeddings for this note
-    await supabase
+    const { error: deleteError } = await supabase
       .from('notes_embeddings')
       .delete()
       .eq('note_id', noteId)
       .eq('user_id', userId);
 
-    // Combine title and content for better context
-    const fullContent = `${title}\n\n${content}`;
+    if (deleteError) {
+      console.error('Error deleting existing embeddings:', deleteError);
+    } else {
+      console.log('Existing embeddings deleted successfully');
+    }
+
+    // Combine title and content for better context - use the actual note data
+    const fullContent = `${noteData.title}\n\n${noteData.content}`;
+    console.log(`Full content length: ${fullContent.length} characters`);
     
-    // Split content into chunks (roughly 500 characters each to stay within token limits)
+    // Split content into overlapping chunks for better context retention
     const chunks = [];
-    const chunkSize = 500;
+    const chunkSize = 800; // Increased chunk size
+    const overlap = 200;   // Add overlap between chunks
     
-    for (let i = 0; i < fullContent.length; i += chunkSize) {
+    for (let i = 0; i < fullContent.length; i += (chunkSize - overlap)) {
       const chunk = fullContent.slice(i, i + chunkSize);
-      if (chunk.trim().length > 0) {
+      if (chunk.trim().length > 50) { // Only process meaningful chunks
         chunks.push(chunk.trim());
       }
     }
+
+    console.log(`Created ${chunks.length} chunks for processing`);
 
     // Generate embeddings for each chunk
     const embeddings = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
+      console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`);
       
       try {
+        // Using text-embedding-004 which is Google's latest embedding model
         const embeddingResponse = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`,
           {
@@ -111,28 +125,39 @@ serve(async (req) => {
               model: "models/text-embedding-004",
               content: {
                 parts: [{ text: chunk }]
-              }
+              },
+              taskType: "RETRIEVAL_DOCUMENT" // Optimize for document retrieval
             })
           }
         );
 
         if (!embeddingResponse.ok) {
-          console.error(`Embedding API error for chunk ${i}:`, embeddingResponse.statusText);
+          const errorText = await embeddingResponse.text();
+          console.error(`Embedding API error for chunk ${i}:`, embeddingResponse.status, errorText);
           continue;
         }
 
         const embeddingData = await embeddingResponse.json();
+        
+        if (!embeddingData.embedding?.values) {
+          console.error(`No embedding values returned for chunk ${i}`);
+          continue;
+        }
+
         const embedding = embeddingData.embedding.values;
+        console.log(`Generated embedding for chunk ${i}: ${embedding.length} dimensions`);
 
         embeddings.push({
           note_id: noteId,
           user_id: userId,
           content_chunk: chunk,
-          embedding: `[${embedding.join(',')}]`,
+          embedding: `[${embedding.join(',')}]`, // Store as string array format
           chunk_index: i
         });
 
-        // Add a small delay to avoid rate limiting
+        console.log(`Successfully processed chunk ${i + 1}`);
+
+        // Add a delay to avoid rate limiting (100ms between requests)
         if (i < chunks.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -141,21 +166,33 @@ serve(async (req) => {
       }
     }
 
-    // Insert embeddings into database
+    console.log(`Generated ${embeddings.length} embeddings out of ${chunks.length} chunks`);
+
+    // Insert embeddings into database in batches
     if (embeddings.length > 0) {
-      const { error: insertError } = await supabase
+      console.log(`Inserting ${embeddings.length} embeddings into database`);
+      
+      const { data: insertData, error: insertError } = await supabase
         .from('notes_embeddings')
-        .insert(embeddings);
+        .insert(embeddings)
+        .select('id');
 
       if (insertError) {
+        console.error('Database insert error:', insertError);
         throw insertError;
       }
+
+      console.log(`Successfully inserted ${insertData?.length || 0} embeddings`);
+    } else {
+      console.warn('No embeddings were generated!');
     }
 
     return new Response(JSON.stringify({ 
       success: true,
       chunksProcessed: embeddings.length,
-      totalChunks: chunks.length
+      totalChunks: chunks.length,
+      noteTitle: noteData.title,
+      noteId: noteId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
