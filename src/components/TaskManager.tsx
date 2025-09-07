@@ -288,29 +288,36 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
     
     if (oldIndex === -1 || newIndex === -1) return;
 
-    // Simply reorder the current filtered tasks
-    const reorderedFilteredTasks = arrayMove(filteredTasks, oldIndex, newIndex);
+    // Create reordered array
+    const reorderedTasks = arrayMove(filteredTasks, oldIndex, newIndex);
     
     if (onReorderTasks) {
-      // Create a complete new task array with the reordered filtered tasks
-      const updatedTasks = [...tasks];
-      
-      // Remove all filtered tasks from their current positions
-      const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
-      const nonFilteredTasks = updatedTasks.filter(task => !filteredTaskIds.has(task.id));
-      
-      // Find where to insert the reordered tasks (maintain original position of first filtered task)
-      const firstFilteredTaskIndex = updatedTasks.findIndex(task => filteredTaskIds.has(task.id));
-      const insertIndex = firstFilteredTaskIndex >= 0 ? firstFilteredTaskIndex : nonFilteredTasks.length;
-      
-      // Create final array: non-filtered tasks + reordered filtered tasks
-      const finalTasks = [
-        ...nonFilteredTasks.slice(0, insertIndex),
-        ...reorderedFilteredTasks,
-        ...nonFilteredTasks.slice(insertIndex)
-      ];
-      
-      onReorderTasks(finalTasks);
+      // If we're viewing filtered tasks, we need to maintain the order within the full task list
+      if (filter !== 'all' || priorityFilter !== 'all') {
+        // For filtered views, we'll reorder just the filtered tasks
+        // and let the parent component handle the full task list ordering
+        const updatedAllTasks = [...tasks];
+        
+        // Remove all filtered tasks from their current positions
+        const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
+        const nonFilteredTasks = updatedAllTasks.filter(task => !filteredTaskIds.has(task.id));
+        
+        // Find the position of the first filtered task in the original array
+        const firstFilteredIndex = updatedAllTasks.findIndex(task => filteredTaskIds.has(task.id));
+        const insertIndex = firstFilteredIndex >= 0 ? firstFilteredIndex : 0;
+        
+        // Insert reordered tasks at the same relative position
+        const finalTasks = [
+          ...nonFilteredTasks.slice(0, insertIndex),
+          ...reorderedTasks,
+          ...nonFilteredTasks.slice(insertIndex)
+        ];
+        
+        onReorderTasks(finalTasks);
+      } else {
+        // For 'all' view, directly use the reordered tasks
+        onReorderTasks(reorderedTasks);
+      }
     }
   };
 

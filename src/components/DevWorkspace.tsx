@@ -38,6 +38,7 @@ export const DevWorkspace = () => {
   const [activeNote, setActiveNote] = useState<SupabaseNote | null>(null);
   const [activeView, setActiveView] = useState<'notes' | 'tasks' | 'mindmap'>('notes');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [taskOrder, setTaskOrder] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Convert Supabase data to legacy format for compatibility with existing components
@@ -50,7 +51,32 @@ export const DevWorkspace = () => {
     updatedAt: new Date(note.updated_at)
   }));
 
-  const tasks: Task[] = supabaseTasks.map(task => ({
+  // Sort tasks based on custom order, falling back to creation date
+  const sortedSupabaseTasks = React.useMemo(() => {
+    if (taskOrder.length === 0) {
+      return supabaseTasks;
+    }
+    
+    const taskMap = new Map(supabaseTasks.map(task => [task.id, task]));
+    const orderedTasks: typeof supabaseTasks = [];
+    const unorderedTasks: typeof supabaseTasks = [];
+    
+    // Add tasks in the specified order
+    taskOrder.forEach(taskId => {
+      const task = taskMap.get(taskId);
+      if (task) {
+        orderedTasks.push(task);
+        taskMap.delete(taskId);
+      }
+    });
+    
+    // Add any remaining tasks that weren't in the order
+    taskMap.forEach(task => unorderedTasks.push(task));
+    
+    return [...orderedTasks, ...unorderedTasks];
+  }, [supabaseTasks, taskOrder]);
+
+  const tasks: Task[] = sortedSupabaseTasks.map(task => ({
     id: task.id,
     title: task.title,
     completed: task.completed,
@@ -100,6 +126,13 @@ export const DevWorkspace = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Initialize task order when tasks are loaded
+  React.useEffect(() => {
+    if (supabaseTasks.length > 0 && taskOrder.length === 0) {
+      setTaskOrder(supabaseTasks.map(task => task.id));
+    }
+  }, [supabaseTasks, taskOrder.length]);
 
   const handleCreateNewNote = async () => {
     const newNote = await createNote({
@@ -157,10 +190,33 @@ export const DevWorkspace = () => {
   };
 
   const handleReorderTasks = async (reorderedTasks: Task[]) => {
-    // Update the task order in the UI immediately
-    // For a real implementation, you'd want to add an order field to the database
-    console.log('Tasks reordered:', reorderedTasks.map((t, i) => `${i + 1}. ${t.title}`));
+    // Update the task order immediately in the UI
+    const newOrder = reorderedTasks.map(task => task.id);
+    setTaskOrder(newOrder);
+    
+    // Store the order in localStorage for persistence across sessions
+    localStorage.setItem('task-order', JSON.stringify(newOrder));
+    
+    toast({
+      title: "Tasks reordered",
+      description: "Task order has been updated",
+    });
   };
+
+  // Load task order from localStorage on mount
+  React.useEffect(() => {
+    const savedOrder = localStorage.getItem('task-order');
+    if (savedOrder) {
+      try {
+        const order = JSON.parse(savedOrder);
+        if (Array.isArray(order)) {
+          setTaskOrder(order);
+        }
+      } catch (error) {
+        console.error('Failed to parse saved task order:', error);
+      }
+    }
+  }, []);
 
   const handleTaskClick = (noteId: string) => {
     const note = supabaseNotes.find(n => n.id === noteId);
