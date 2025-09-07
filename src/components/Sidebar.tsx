@@ -1,6 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -8,10 +8,7 @@ import {
   CheckSquare, 
   Brain, 
   Plus, 
-  Search, 
-  Trash2,
-  Hash,
-  Calendar
+  Hash
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,13 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewNote,
   onDeleteNote
 }) => {
-  const [searchQuery, setSearchQuery] = React.useState('');
-
-  const filteredNotes = notes.filter(note =>
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const navigate = useNavigate();
 
   const formatDate = (date: Date) => {
     const now = new Date();
@@ -94,15 +85,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <h1 className="text-lg font-semibold gradient-text">DevNotes</h1>
         </div>
         
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search notes... (⌘K)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-sidebar-accent border-sidebar-border"
-          />
-        </div>
       </div>
 
       {/* Navigation */}
@@ -114,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               "w-full justify-start",
               activeView === 'notes' && "bg-sidebar-primary text-sidebar-primary-foreground"
             )}
-            onClick={() => onViewChange('notes')}
+            onClick={() => navigate('/notes')}
           >
             <FileText className="h-4 w-4 mr-2" />
             Notes
@@ -154,89 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
-        {activeView === 'notes' && (
-          <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-sidebar-border">
-              <Button
-                onClick={onNewNote}
-                className="w-full bg-sidebar-primary hover:bg-sidebar-primary/90"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Note (⌘N)
-              </Button>
-            </div>
-            
-            <ScrollArea className="flex-1">
-              <div className="p-2">
-                {filteredNotes.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No notes found</p>
-                    <p className="text-xs">Create your first note</p>
-                  </div>
-                ) : (
-                  filteredNotes.map((note) => (
-                    <div
-                      key={note.id}
-                      className={cn(
-                        "p-3 rounded-lg cursor-pointer transition-smooth hover:bg-sidebar-accent group mb-2",
-                        activeNote?.id === note.id && "bg-sidebar-accent border border-sidebar-primary"
-                      )}
-                      onClick={() => onNoteSelect(note)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm truncate">
-                            {note.title || 'Untitled'}
-                          </h3>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {note.content || 'No content'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(note.updatedAt)}
-                            </span>
-                          </div>
-                          {note.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {note.tags.slice(0, 2).map((tag) => (
-                                <Badge
-                                  key={tag}
-                                  variant="outline"
-                                  className="text-xs px-1 py-0"
-                                >
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {note.tags.length > 2 && (
-                                <Badge variant="outline" className="text-xs px-1 py-0">
-                                  +{note.tags.length - 2}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-fast h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteNote(note.id);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
-
         {activeView === 'tasks' && (
           <ScrollArea className="h-full">
             <div className="p-4">
@@ -258,6 +157,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           </ScrollArea>
+        )}
+
+        {activeView === 'notes' && (
+          <div className="p-4">
+            <div className="text-center text-muted-foreground py-8">
+              <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Browse all notes</p>
+              <p className="text-xs">Click Notes above to view all</p>
+            </div>
+          </div>
         )}
       </div>
 
