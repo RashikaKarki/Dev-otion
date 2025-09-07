@@ -126,20 +126,24 @@ serve(async (req) => {
 
     // Generate response using Gemini
     const prompt = context 
-      ? `You are a helpful assistant that answers questions based on the user's notes. 
-         Use the following context from the user's notes to answer their question. 
-         If the context doesn't contain enough information to answer the question, say so clearly.
-         
-         Context from notes:
-         ${context}
-         
-         User question: ${message}
-         
-         Please provide a helpful answer based on the context above.`
-      : `You are a helpful assistant. The user asked: "${message}"
-         
-         I don't have any relevant context from your notes to answer this question. 
-         Please add some notes related to this topic so I can provide better assistance in the future.`;
+      ? `You are an AI assistant that ONLY answers questions based on the user's provided notes. Your role is to help users find information from their personal note collection.
+
+IMPORTANT RULES:
+1. ONLY use information from the provided context below
+2. If the context doesn't contain enough information to answer the question, say "I don't have enough information in your notes to answer this question"
+3. Do not use any external knowledge or make assumptions beyond what's in the context
+4. Always be specific about which parts of the notes you're referencing
+5. Keep responses concise and helpful
+
+Context from your notes:
+${context}
+
+User question: ${message}
+
+Please provide a helpful answer based only on the information in your notes above.`
+      : `I don't have any relevant information in your notes to answer the question: "${message}"
+
+To get better answers, please add some notes related to this topic so I can help you find information from your personal knowledge base.`;
 
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,

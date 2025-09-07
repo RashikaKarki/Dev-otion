@@ -138,8 +138,8 @@ export function AIChat({ onSelectNote }: AIChatProps) {
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col space-y-4">
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 pr-4 max-h-[calc(100vh-200px)]">
+          <div className="space-y-4 min-h-0">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
                 <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -151,38 +151,38 @@ export function AIChat({ onSelectNote }: AIChatProps) {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} mb-4`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[85%] rounded-lg p-4 ${
                     message.isUser
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted'
                   }`}
                 >
-                  <div className="flex items-start space-x-2">
+                  <div className="flex items-start space-x-3">
                     {message.isUser ? (
-                      <User className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <User className="h-5 w-5 mt-0.5 flex-shrink-0" />
                     ) : (
-                      <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <Bot className="h-5 w-5 mt-0.5 flex-shrink-0" />
                     )}
-                    <div className="flex-1">
-                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
                       
                       {message.sourceNotes && message.sourceNotes.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-border/50">
-                          <p className="text-xs opacity-75 mb-1">Sources:</p>
+                        <div className="mt-3 pt-3 border-t border-border/30">
+                          <p className="text-xs opacity-75 mb-2 font-medium">Referenced Notes:</p>
                           <div className="space-y-1">
                             {message.sourceNotes.map((note) => (
                               <Button
                                 key={note.id}
                                 variant="ghost"
                                 size="sm"
-                                className="h-auto p-1 text-xs justify-start"
+                                className="h-auto p-2 text-xs justify-start w-full"
                                 onClick={() => onSelectNote?.(note.id)}
                               >
-                                <ExternalLink className="h-3 w-3 mr-1" />
-                                {note.title}
+                                <ExternalLink className="h-3 w-3 mr-2 flex-shrink-0" />
+                                <span className="truncate">{note.title}</span>
                               </Button>
                             ))}
                           </div>
@@ -195,10 +195,10 @@ export function AIChat({ onSelectNote }: AIChatProps) {
             ))}
             
             {loading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg p-3 max-w-[80%]">
-                  <div className="flex items-center space-x-2">
-                    <Bot className="h-4 w-4" />
+              <div className="flex justify-start mb-4">
+                <div className="bg-muted rounded-lg p-4 max-w-[85%]">
+                  <div className="flex items-center space-x-3">
+                    <Bot className="h-5 w-5 flex-shrink-0" />
                     <div className="flex space-x-1">
                       <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
                       <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -212,18 +212,20 @@ export function AIChat({ onSelectNote }: AIChatProps) {
           <div ref={messagesEndRef} />
         </ScrollArea>
 
-        <form onSubmit={handleSendMessage} className="flex space-x-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me about your notes..."
-            disabled={loading}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={loading || !input.trim()}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+        <div className="border-t border-border pt-4">
+          <form onSubmit={handleSendMessage} className="flex space-x-3">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask me about your notes..."
+              disabled={loading}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={loading || !input.trim()} size="icon">
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
       </CardContent>
     </Card>
   );
