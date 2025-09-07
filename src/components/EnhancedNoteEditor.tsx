@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { CodeBlock } from './CodeBlock';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Save, 
   Hash, 
@@ -37,6 +38,7 @@ interface EnhancedNoteEditorProps {
   onToggleTask?: (taskId: string) => void;
   linkedTasks?: Array<{id: string; title: string; completed: boolean; priority: 'low' | 'medium' | 'high'}>;
   onBack?: () => void;
+  onSwitchToView?: () => void;
 }
 
 interface CodeBlockData {
@@ -47,7 +49,7 @@ interface CodeBlockData {
   endLine: number;
 }
 
-export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onToggleTask, linkedTasks = [], onBack }) => {
+export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onToggleTask, linkedTasks = [], onBack, onSwitchToView }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -60,6 +62,7 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (note) {
@@ -109,6 +112,18 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
       content,
       tags
     });
+    
+    toast({
+      title: "Note saved",
+      description: "Your changes have been saved successfully",
+    });
+    
+    // Switch to view mode after saving
+    if (onSwitchToView) {
+      setTimeout(() => {
+        onSwitchToView();
+      }, 500); // Small delay to show the toast
+    }
   };
 
   const handleAddTag = () => {
