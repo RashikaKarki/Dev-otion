@@ -203,6 +203,21 @@ export const DevWorkspace = () => {
           <EnhancedNoteEditor
             note={activeNote}
             onNoteUpdate={updateNote}
+            onCreateTask={(title, priority, linkedNoteId) => {
+              const newTask: Task = {
+                id: crypto.randomUUID(),
+                title,
+                completed: false,
+                priority,
+                createdAt: new Date(),
+                linkedNoteId
+              };
+              setTasks(prev => [newTask, ...prev]);
+              toast({
+                title: "Task created",
+                description: `"${title}" linked to note`,
+              });
+            }}
           />
         )}
         

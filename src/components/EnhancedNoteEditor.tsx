@@ -15,7 +15,8 @@ import {
   Quote,
   Eye,
   Edit3,
-  Terminal
+  Terminal,
+  Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ interface Note {
 interface EnhancedNoteEditorProps {
   note: Note | null;
   onNoteUpdate: (note: Note) => void;
+  onCreateTask?: (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId: string) => void;
 }
 
 interface CodeBlockData {
@@ -41,7 +43,7 @@ interface CodeBlockData {
   endLine: number;
 }
 
-export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate }) => {
+export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onCreateTask }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -49,6 +51,9 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
   const [isPreview, setIsPreview] = useState(false);
   const [codeBlocks, setCodeBlocks] = useState<CodeBlockData[]>([]);
   const [selectedCodeBlock, setSelectedCodeBlock] = useState<string | null>(null);
+  const [showTaskInput, setShowTaskInput] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -218,6 +223,14 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
 
     setContent(updatedContent);
     extractCodeBlocks(updatedContent);
+  };
+
+  const handleCreateTask = () => {
+    if (!newTaskTitle.trim() || !note || !onCreateTask) return;
+    
+    onCreateTask(newTaskTitle.trim(), newTaskPriority, note.id);
+    setNewTaskTitle('');
+    setShowTaskInput(false);
   };
 
   const renderPreview = (text: string) => {
@@ -410,7 +423,59 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
             >
               <ListOrdered className="h-4 w-4" />
             </Button>
+            <div className="w-px h-4 bg-border mx-2" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowTaskInput(!showTaskInput)}
+              title="Add Task"
+              className={cn(showTaskInput && "bg-accent")}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
+          
+          {/* Task Creation Input */}
+          {showTaskInput && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-2">
+                <Input
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="Task title..."
+                  className="flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCreateTask();
+                    } else if (e.key === 'Escape') {
+                      setShowTaskInput(false);
+                      setNewTaskTitle('');
+                    }
+                  }}
+                  autoFocus
+                />
+                <select
+                  value={newTaskPriority}
+                  onChange={(e) => setNewTaskPriority(e.target.value as 'low' | 'medium' | 'high')}
+                  className="px-2 py-1 text-sm border border-border rounded bg-background"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+                <Button
+                  size="sm"
+                  onClick={handleCreateTask}
+                  disabled={!newTaskTitle.trim()}
+                >
+                  Add Task
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This task will be linked to "{note?.title || 'this note'}"
+              </p>
+            </div>
+          )}
         </div>
       )}
 
