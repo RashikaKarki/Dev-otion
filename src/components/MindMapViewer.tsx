@@ -80,7 +80,7 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
     : [];
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="flex-1 flex flex-col bg-background overflow-auto">
       {/* Header */}
       <header className="border-b border-border p-6 bg-card/50">
         <div className="flex items-center justify-between mb-4">
@@ -92,26 +92,6 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
             <p className="text-muted-foreground">
               Visual representation of your notes and connections
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={generateMindMap}
-              disabled={isGenerating || notes.length === 0}
-              className="bg-primary hover:bg-primary/90"
-            >
-              {isGenerating ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4 mr-2" />
-              )}
-              {isGenerating ? 'Generating...' : 'Generate Map'}
-            </Button>
-            {mindMapUrl && (
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            )}
           </div>
         </div>
 
@@ -144,9 +124,9 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-auto">
         {/* Mind Map Display */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 min-h-0">
           <InteractiveMindMap 
             notes={notes} 
             activeNote={activeNote}
@@ -158,7 +138,7 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
         </div>
 
         {/* Sidebar Info */}
-        <div className="w-80 border-l border-border bg-card/30 overflow-hidden">
+        <div className="w-80 border-l border-border bg-card/30 overflow-auto">
           <div className="p-4 border-b border-border">
             <h3 className="font-semibold mb-2 flex items-center gap-2">
               <Lightbulb className="h-4 w-4" />
@@ -166,7 +146,7 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
             </h3>
           </div>
 
-          <div className="p-4 space-y-6 overflow-auto">
+          <div className="p-4 space-y-6 overflow-auto flex-1">
             {/* Active Note Connections */}
             {activeNote && (
               <div>
