@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { CodeBlock } from './CodeBlock';
@@ -33,6 +34,8 @@ interface EnhancedNoteEditorProps {
   note: Note | null;
   onNoteUpdate: (note: Note) => void;
   onCreateTask?: (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId: string, completed?: boolean) => void;
+  onToggleTask?: (taskId: string) => void;
+  linkedTasks?: Array<{id: string; title: string; completed: boolean}>;
 }
 
 interface CodeBlockData {
@@ -43,7 +46,7 @@ interface CodeBlockData {
   endLine: number;
 }
 
-export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onCreateTask }) => {
+export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onCreateTask, onToggleTask, linkedTasks = [] }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -273,13 +276,13 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
   };
 
   const renderPreview = (text: string) => {
-    // Enhanced preview with proper code block rendering
+    // First, render basic markdown
     let html = text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
       .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
-      .replace(/^- (.*$)/gm, '<li>$1</li>')
+      .replace(/^- ((?!\[).*)$/gm, '<li>$1</li>') // Regular list items (not checkboxes)
       .replace(/^(\d+)\. (.*$)/gm, '<li>$1. $2</li>')
       .replace(/\n/g, '<br>');
 
@@ -292,6 +295,55 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
     });
 
     return html;
+  };
+
+  const renderInteractiveCheckboxes = (text: string) => {
+    const lines = text.split('\n');
+    return lines.map((line, index) => {
+      // Match checkbox patterns: - [ ] or - [x] or - [X]
+      const checkboxMatch = line.match(/^(-\s*)\[([xX\s])\]\s+(.+)$/);
+      
+      if (checkboxMatch) {
+        const prefix = checkboxMatch[1];
+        const isChecked = checkboxMatch[2].toLowerCase() === 'x';
+        const taskTitle = checkboxMatch[3];
+        
+        // Find matching task from linked tasks
+        const matchingTask = linkedTasks.find(task => task.title === taskTitle);
+        const actualChecked = matchingTask ? matchingTask.completed : isChecked;
+        
+        return (
+          <div key={index} className="flex items-center gap-2 my-1">
+            <span className="text-muted-foreground">{prefix}</span>
+            <Checkbox
+              checked={actualChecked}
+              onCheckedChange={(checked) => {
+                if (matchingTask && onToggleTask) {
+                  onToggleTask(matchingTask.id);
+                } else if (!matchingTask && onCreateTask && note) {
+                  // Create new task if it doesn't exist
+                  onCreateTask(taskTitle, 'medium', note.id, checked as boolean);
+                }
+              }}
+              className="mr-1"
+            />
+            <span className={actualChecked ? 'line-through text-muted-foreground' : ''}>
+              {taskTitle}
+            </span>
+          </div>
+        );
+      }
+      
+      // Regular line - apply basic markdown
+      const processedLine = line
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+      
+      return (
+        <div key={index} dangerouslySetInnerHTML={{ __html: processedLine || '<br>' }} />
+      );
+    });
   };
 
   // Keyboard shortcuts for editor
