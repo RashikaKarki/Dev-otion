@@ -20,40 +20,12 @@ interface ChatRequest {
   message: string;
 }
 
-// GPT4All-style local embedding using their embedding approach
-async function generateGPT4AllEmbedding(text: string): Promise<number[]> {
-  try {
-    // Use GPT4All's local embedding endpoint (runs locally, no API key needed)
-    const response = await fetch('http://localhost:4891/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'all-MiniLM-L6-v2',
-        input: text
-      })
-    });
-
-    if (!response.ok) {
-      // Fallback to simple local embeddings if GPT4All server isn't running
-      console.log('GPT4All server not available, using fallback embedding');
-      return generateFallbackEmbedding(text);
-    }
-
-    const data = await response.json();
-    return data.data[0].embedding;
-  } catch (error) {
-    console.log('GPT4All connection failed, using fallback embedding:', error.message);
-    return generateFallbackEmbedding(text);
-  }
-}
-
-// Fallback embedding when GPT4All isn't available
-function generateFallbackEmbedding(text: string): number[] {
+// Pure local embedding function - no external dependencies or API calls
+function generateLocalEmbedding(text: string): number[] {
   const words = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 0);
   const embedding = new Array(384).fill(0);
   
+  // Simple but effective word-based embedding
   words.forEach((word, index) => {
     const wordHash = hashString(word);
     for (let i = 0; i < Math.min(word.length, 10); i++) {
@@ -63,7 +35,17 @@ function generateFallbackEmbedding(text: string): number[] {
     }
   });
   
-  // Normalize
+  // Character trigrams for better context
+  for (let i = 0; i < text.length - 2; i++) {
+    const trigram = text.slice(i, i + 3).toLowerCase();
+    const trigramHash = hashString(trigram);
+    const pos1 = trigramHash % 384;
+    const pos2 = (trigramHash * 7) % 384;
+    embedding[pos1] += 0.2;
+    embedding[pos2] += 0.1;
+  }
+  
+  // Normalize the embedding
   const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
   if (magnitude > 0) {
     for (let i = 0; i < embedding.length; i++) {
@@ -135,11 +117,11 @@ serve(async (req) => {
 
     const geminiApiKey = settingsData.gemini_api_key;
 
-    // Generate query embedding using GPT4All (completely local, no API key needed!)
-    console.log('Generating query embedding with GPT4All...');
-    const queryEmbedding = await generateGPT4AllEmbedding(message);
+    // Generate query embedding using pure local algorithm (NO external dependencies!)
+    console.log('Generating query embedding with local algorithm...');
+    const queryEmbedding = generateLocalEmbedding(message);
 
-    console.log(`Generated GPT4All query embedding with ${queryEmbedding.length} dimensions`);
+    console.log(`Generated local query embedding with ${queryEmbedding.length} dimensions`);
 
     // Search for similar embeddings using Supabase vector similarity (FREE!)
     console.log('Searching for similar embeddings...');
@@ -276,7 +258,7 @@ Please provide a helpful answer based only on the information in your notes abov
         totalMatches: matches?.length || 0,
         contextLength: context.length,
         hasContext: !!context,
-        embeddingModel: 'GPT4All Local Embeddings (all-MiniLM-L6-v2)',
+        embeddingModel: 'Local Text Embeddings (No Dependencies)',
         vectorDB: 'Supabase pgvector (FREE)',
         responseModel: 'Gemini 1.5 Flash'
       }
