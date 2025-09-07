@@ -58,27 +58,28 @@ serve(async (req) => {
       throw new Error('Note not found or access denied');
     }
 
-    // Get user's Cohere API key
-    const { data: settingsData, error: settingsError } = await supabase
-      .from('user_settings')
-      .select('cohere_api_key')
-      .eq('user_id', userId)
-      .single();
+    console.log(`Note verified: "${noteData.title}" (${noteData.content.length} chars)`);
 
-    if (settingsError || !settingsData?.cohere_api_key) {
-      throw new Error('Cohere API key not found. Please add your API key in settings.');
+    // Delete existing embeddings for this note
+    const { error: deleteError } = await supabase
+      .from('notes_embeddings')
+      .delete()
+      .eq('note_id', noteId)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('Error deleting existing embeddings:', deleteError);
+    } else {
+      console.log('Existing embeddings deleted successfully');
     }
-
-    const cohereApiKey = settingsData.cohere_api_key;
-    console.log('Cohere API key retrieved successfully');
 
     // Combine title and content for better context
     const fullContent = `${noteData.title}\n\n${noteData.content}`;
     console.log(`Full content length: ${fullContent.length} characters`);
     
-    // Split content into chunks with overlap for better context retention
+    // Split content into overlapping chunks
     const chunks = [];
-    const chunkSize = 1000; // Cohere can handle larger chunks
+    const chunkSize = 800;
     const overlap = 200;
     
     for (let i = 0; i < fullContent.length; i += (chunkSize - overlap)) {
@@ -90,58 +91,70 @@ serve(async (req) => {
 
     console.log(`Created ${chunks.length} chunks for processing`);
 
-    // Generate embeddings using Cohere
+    // Generate embeddings using HuggingFace Transformers (FREE!)
     const embeddings = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`);
       
       try {
-        const embeddingResponse = await fetch('https://api.cohere.ai/v1/embed', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${cohereApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            texts: [chunk],
-            model: 'embed-english-v3.0', // Latest Cohere embedding model
-            input_type: 'search_document',
-            embedding_types: ['float']
-          })
-        });
+        // Using HuggingFace's free sentence-transformers API
+        const embeddingResponse = await fetch(
+          'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              // HuggingFace Inference API is free! No API key needed for public models
+            },
+            body: JSON.stringify({
+              inputs: chunk,
+              options: { wait_for_model: true }
+            })
+          }
+        );
 
         if (!embeddingResponse.ok) {
           const errorText = await embeddingResponse.text();
-          console.error(`Cohere API error for chunk ${i}:`, embeddingResponse.status, errorText);
+          console.error(`HuggingFace API error for chunk ${i}:`, embeddingResponse.status, errorText);
+          
+          // If rate limited, wait and retry once
+          if (embeddingResponse.status === 429) {
+            console.log('Rate limited, waiting 2 seconds and retrying...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue; // Will retry this chunk in next iteration
+          }
           continue;
         }
 
         const embeddingData = await embeddingResponse.json();
         
-        if (!embeddingData.embeddings?.float?.[0]) {
-          console.error(`No embedding returned for chunk ${i}`);
+        // HuggingFace returns the embedding directly as an array
+        let embedding;
+        if (Array.isArray(embeddingData)) {
+          embedding = embeddingData;
+        } else if (embeddingData.embeddings) {
+          embedding = embeddingData.embeddings;
+        } else {
+          console.error(`Unexpected embedding format for chunk ${i}:`, embeddingData);
           continue;
         }
 
-        const embedding = embeddingData.embeddings.float[0];
         console.log(`Generated embedding for chunk ${i}: ${embedding.length} dimensions`);
 
         embeddings.push({
-          id: `${noteId}_chunk_${i}`,
-          embedding: embedding,
-          metadata: {
-            noteId: noteId,
-            userId: userId,
-            chunkIndex: i,
-            noteTitle: noteData.title,
-            content: chunk
-          }
+          note_id: noteId,
+          user_id: userId,
+          content_chunk: chunk,
+          embedding: `[${embedding.join(',')}]`, // Store as string array format
+          chunk_index: i
         });
 
-        // Small delay to avoid rate limiting
+        console.log(`Successfully processed chunk ${i + 1}`);
+
+        // Add delay to avoid rate limiting on free tier
         if (i < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (error) {
         console.error(`Error generating embedding for chunk ${i}:`, error);
@@ -150,57 +163,23 @@ serve(async (req) => {
 
     console.log(`Generated ${embeddings.length} embeddings out of ${chunks.length} chunks`);
 
-    // Store embeddings in Chroma
+    // Insert embeddings into Supabase database (FREE!)
     if (embeddings.length > 0) {
-      const chromaUrl = Deno.env.get('CHROMA_URL') || 'http://localhost:8000';
-      const collectionName = 'notes_embeddings';
+      console.log(`Inserting ${embeddings.length} embeddings into database`);
       
-      // First, try to get or create the collection
-      try {
-        await fetch(`${chromaUrl}/api/v1/collections/${collectionName}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: collectionName,
-            metadata: { description: 'Note embeddings for RAG' }
-          })
-        });
-      } catch (error) {
-        console.log('Collection might already exist, continuing...');
+      const { data: insertData, error: insertError } = await supabase
+        .from('notes_embeddings')
+        .insert(embeddings)
+        .select('id');
+
+      if (insertError) {
+        console.error('Database insert error:', insertError);
+        throw insertError;
       }
 
-      // Delete existing embeddings for this note
-      try {
-        await fetch(`${chromaUrl}/api/v1/collections/${collectionName}/delete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            where: { noteId: noteId }
-          })
-        });
-      } catch (error) {
-        console.log('No existing embeddings to delete');
-      }
-
-      // Add new embeddings
-      const chromaResponse = await fetch(`${chromaUrl}/api/v1/collections/${collectionName}/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ids: embeddings.map(e => e.id),
-          embeddings: embeddings.map(e => e.embedding),
-          metadatas: embeddings.map(e => e.metadata),
-          documents: embeddings.map(e => e.metadata.content)
-        })
-      });
-
-      if (!chromaResponse.ok) {
-        const errorText = await chromaResponse.text();
-        console.error('Chroma storage error:', errorText);
-        throw new Error(`Failed to store embeddings in Chroma: ${errorText}`);
-      }
-
-      console.log(`Successfully stored ${embeddings.length} embeddings in Chroma`);
+      console.log(`Successfully inserted ${insertData?.length || 0} embeddings`);
+    } else {
+      console.warn('No embeddings were generated!');
     }
 
     return new Response(JSON.stringify({ 
@@ -208,13 +187,14 @@ serve(async (req) => {
       chunksProcessed: embeddings.length,
       totalChunks: chunks.length,
       noteTitle: noteData.title,
-      noteId: noteId
+      noteId: noteId,
+      model: 'sentence-transformers/all-MiniLM-L6-v2 (FREE)'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error in generate-embeddings function:', error);
+    console.error('Error in generate-embeddings-hf function:', error);
     return new Response(JSON.stringify({ 
       error: error.message 
     }), {

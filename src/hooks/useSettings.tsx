@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 interface UserSettings {
-  cohere_api_key?: string;
+  gemini_api_key?: string;
 }
 
 export function useSettings() {
@@ -23,7 +23,7 @@ export function useSettings() {
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('cohere_api_key')
+        .select('gemini_api_key')
         .eq('user_id', user?.id)
         .single();
 
@@ -40,14 +40,14 @@ export function useSettings() {
     }
   };
 
-  const hasCohereApiKey = () => {
-    return settings?.cohere_api_key && settings.cohere_api_key.length > 0;
+  const hasGeminiApiKey = () => {
+    return settings?.gemini_api_key && settings.gemini_api_key.length > 0;
   };
 
   return {
     settings,
     loading,
-    hasCohereApiKey,
+    hasGeminiApiKey,
     refetch: loadSettings
   };
 }

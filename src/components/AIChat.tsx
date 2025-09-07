@@ -28,7 +28,7 @@ export function AIChat({ onSelectNote }: AIChatProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const { settings, hasCohereApiKey } = useSettings();
+  const { settings, hasGeminiApiKey } = useSettings();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +56,7 @@ export function AIChat({ onSelectNote }: AIChatProps) {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('cohere-chat', {
+      const { data, error } = await supabase.functions.invoke('gemini-chat-hf', {
         body: {
           message: userMessage.content
         }
@@ -94,7 +94,7 @@ export function AIChat({ onSelectNote }: AIChatProps) {
     }
   };
 
-  if (!hasCohereApiKey()) {
+  if (!hasGeminiApiKey()) {
     return (
       <Card className="h-full flex flex-col">
         <CardHeader>
@@ -107,7 +107,8 @@ export function AIChat({ onSelectNote }: AIChatProps) {
           <Alert>
             <Settings className="h-4 w-4" />
             <AlertDescription className="space-y-2">
-              <p>To use the AI chat feature, please add your Cohere API key in settings.</p>
+              <p>To use the AI chat feature, please add your Gemini API key in settings.</p>
+              <p className="text-xs text-muted-foreground">✨ Embeddings are FREE via HuggingFace!</p>
               <Link to="/settings">
                 <Button variant="outline" size="sm">
                   <Settings className="h-4 w-4 mr-2" />

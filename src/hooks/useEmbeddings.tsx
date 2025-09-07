@@ -4,18 +4,19 @@ import { useSettings } from './useSettings';
 
 export function useEmbeddings() {
   const { user } = useAuth();
-  const { hasCohereApiKey } = useSettings();
+  const { hasGeminiApiKey } = useSettings();
 
   const generateEmbeddings = async (noteId: string, content: string, title: string) => {
-    if (!user || !hasCohereApiKey()) {
-      console.warn('Cannot generate embeddings: user not authenticated or API key missing');
+    // No API key needed for HuggingFace embeddings, but we'll keep the check for consistency
+    if (!user) {
+      console.warn('Cannot generate embeddings: user not authenticated');
       return null;
     }
 
     console.log(`Starting embedding generation for note "${title}"`);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-embeddings-cohere', {
+      const { data, error } = await supabase.functions.invoke('generate-embeddings-hf', {
         body: {
           noteId,
           content,
@@ -37,14 +38,25 @@ export function useEmbeddings() {
   };
 
   const deleteEmbeddings = async (noteId: string) => {
-    // With Chroma, embeddings are automatically deleted when new ones are generated
-    // for the same note, so we don't need to explicitly delete them
-    console.log(`Embeddings for note ${noteId} will be replaced automatically`);
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('notes_embeddings')
+        .delete()
+        .eq('note_id', noteId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting embeddings:', error);
+      throw error;
+    }
   };
 
   return {
     generateEmbeddings,
     deleteEmbeddings,
-    hasCohereApiKey
+    hasGeminiApiKey
   };
 }

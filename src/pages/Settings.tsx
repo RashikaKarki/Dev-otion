@@ -11,7 +11,7 @@ import { Eye, EyeOff, ArrowLeft, BookOpen, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function Settings() {
-  const [cohereApiKey, setCohereApiKey] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -31,7 +31,7 @@ export default function Settings() {
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('cohere_api_key')
+        .select('gemini_api_key')
         .eq('user_id', user?.id)
         .single();
 
@@ -39,8 +39,8 @@ export default function Settings() {
         throw error;
       }
 
-      if (data?.cohere_api_key) {
-        setCohereApiKey(data.cohere_api_key);
+      if (data?.gemini_api_key) {
+        setGeminiApiKey(data.gemini_api_key);
       }
     } catch (error: any) {
       toast({
@@ -62,14 +62,14 @@ export default function Settings() {
         .from('user_settings')
         .upsert({
           user_id: user?.id,
-          cohere_api_key: cohereApiKey,
+          gemini_api_key: geminiApiKey,
         });
 
       if (error) throw error;
 
       toast({
         title: "Settings saved!",
-        description: "Your Cohere API key has been securely stored.",
+        description: "Your Gemini API key has been securely stored.",
       });
     } catch (error: any) {
       toast({
@@ -124,20 +124,20 @@ export default function Settings() {
           <Alert className="mb-6">
             <Sparkles className="h-4 w-4" />
             <AlertDescription>
-              Currently using Cohere for embeddings and text generation. Get your API key from the Cohere dashboard.
+              Using FREE HuggingFace embeddings + Supabase vector storage + Gemini for responses. Only Gemini API key required!
             </AlertDescription>
           </Alert>
 
             <form onSubmit={handleSaveSettings} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="cohere-api-key">Cohere API Key</Label>
+                <Label htmlFor="gemini-api-key">Google Gemini API Key</Label>
                 <div className="relative">
                   <Input
-                    id="cohere-api-key"
+                    id="gemini-api-key"
                     type={showApiKey ? 'text' : 'password'}
-                    placeholder="Enter your Cohere API key"
-                    value={cohereApiKey}
-                    onChange={(e) => setCohereApiKey(e.target.value)}
+                    placeholder="Enter your Gemini API key"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
                     className="pr-10"
                   />
                   <Button
@@ -165,13 +165,13 @@ export default function Settings() {
             </form>
 
             <div className="mt-6 pt-6 border-t border-border">
-              <h3 className="text-sm font-medium mb-2">How to get your Cohere API key:</h3>
+              <h3 className="text-sm font-medium mb-2">How to get your Gemini API key:</h3>
               <ol className="text-xs text-muted-foreground space-y-1">
-                <li>1. Visit Cohere Dashboard (dashboard.cohere.ai)</li>
-                <li>2. Sign up or sign in to your account</li>
-                <li>3. Go to API Keys section</li>
-                <li>4. Create a new API key and copy it</li>
-                <li>5. Paste the key above and save</li>
+                <li>1. Visit Google AI Studio (aistudio.google.com)</li>
+                <li>2. Sign in with your Google account</li>
+                <li>3. Click "Get API key" and create a new API key</li>
+                <li>4. Copy the key and paste it above</li>
+                <li>5. Embeddings are FREE via HuggingFace!</li>
               </ol>
             </div>
           </CardContent>
