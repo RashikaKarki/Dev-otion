@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { pipeline } from '@huggingface/transformers';
+// Removed HuggingFace transformers import - using local algorithms instead
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Zap, RotateCcw } from 'lucide-react';
@@ -100,37 +100,29 @@ export const InteractiveMindMap: React.FC<InteractiveMindMapProps> = ({
       .map(item => item.term);
   };
 
-  // Calculate semantic similarity using cosine similarity
+  // Calculate semantic similarity using local text analysis
   const calculateSemanticSimilarity = async (text1: string, text2: string): Promise<number> => {
     try {
-      // Use a lightweight embedding model that runs in browser
-      const extractor = await pipeline(
-        'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2',
-        { device: 'webgpu' }
-      );
-
-      const [embedding1, embedding2] = await Promise.all([
-        extractor(text1.slice(0, 500), { pooling: 'mean', normalize: true }),
-        extractor(text2.slice(0, 500), { pooling: 'mean', normalize: true })
-      ]);
-
-      // Calculate cosine similarity
-      const vec1 = Array.from(embedding1.data as Float32Array);
-      const vec2 = Array.from(embedding2.data as Float32Array);
+      // Simple but effective local similarity calculation
+      const words1 = text1.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+      const words2 = text2.toLowerCase().split(/\W+/).filter(w => w.length > 2);
       
-      const dotProduct = vec1.reduce((sum: number, a: number, i: number) => sum + a * vec2[i], 0);
-      const magnitude1 = Math.sqrt(vec1.reduce((sum: number, a: number) => sum + a * a, 0));
-      const magnitude2 = Math.sqrt(vec2.reduce((sum: number, a: number) => sum + a * a, 0));
+      // Calculate Jaccard similarity (intersection over union)
+      const set1 = new Set(words1);
+      const set2 = new Set(words2);
+      const intersection = new Set([...set1].filter(x => set2.has(x)));
+      const union = new Set([...set1, ...set2]);
       
-      return dotProduct / (magnitude1 * magnitude2);
+      const jaccardSimilarity = intersection.size / union.size;
+      
+      // Also consider text length similarity
+      const lengthSimilarity = 1 - Math.abs(text1.length - text2.length) / Math.max(text1.length, text2.length);
+      
+      // Combine both similarities
+      return (jaccardSimilarity * 0.7 + lengthSimilarity * 0.3);
     } catch (error) {
-      console.warn('Semantic similarity calculation failed, using keyword overlap:', error);
-      // Fallback to keyword overlap
-      const words1 = new Set(text1.toLowerCase().split(/\s+/));
-      const words2 = new Set(text2.toLowerCase().split(/\s+/));
-      const intersection = new Set([...words1].filter(x => words2.has(x)));
-      return intersection.size / Math.max(words1.size, words2.size);
+      console.error('Error calculating similarity:', error);
+      return 0;
     }
   };
 

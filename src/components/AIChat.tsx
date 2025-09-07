@@ -108,7 +108,7 @@ export function AIChat({ onSelectNote }: AIChatProps) {
             <Settings className="h-4 w-4" />
             <AlertDescription className="space-y-2">
               <p>To use the AI chat feature, please add your Gemini API key in settings.</p>
-              <p className="text-xs text-muted-foreground">✨ Embeddings are FREE via HuggingFace!</p>
+              <p className="text-xs text-muted-foreground">✨ Embeddings are generated locally!</p>
               <Link to="/settings">
                 <Button variant="outline" size="sm">
                   <Settings className="h-4 w-4 mr-2" />

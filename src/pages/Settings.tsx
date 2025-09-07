@@ -126,7 +126,7 @@ export default function Settings() {
           <Alert className="mb-6">
             <Sparkles className="h-4 w-4" />
             <AlertDescription>
-              Using FREE HuggingFace embeddings + Supabase vector storage + Gemini for responses. Only Gemini API key required!
+              Using LOCAL embeddings + Supabase vector storage + Gemini for responses. Only Gemini API key required!
             </AlertDescription>
           </Alert>
 
