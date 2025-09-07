@@ -106,8 +106,8 @@ export const DevWorkspace = () => {
             e.preventDefault();
             setShowCommandPalette(true);
             break;
-          case 'N': // Shift+N for new note (uppercase N indicates shift is pressed)
-            if (e.shiftKey) {
+          case 'n': // Alt+N for new note (avoiding browser conflict with Ctrl+Shift+N)
+            if (e.altKey) {
               e.preventDefault();
               handleCreateNewNote();
             }
