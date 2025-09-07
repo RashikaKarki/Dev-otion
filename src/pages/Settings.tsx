@@ -173,7 +173,6 @@ export default function Settings() {
                 <li>2. Sign in with your Google account</li>
                 <li>3. Click "Get API key" and create a new API key</li>
                 <li>4. Copy the key and paste it above</li>
-                <li>5. Embeddings are FREE via HuggingFace!</li>
               </ol>
             </div>
           </CardContent>
