@@ -119,14 +119,15 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
         task.completed 
           ? "bg-muted/30 border-muted" 
           : "bg-card border-border hover:border-primary/50",
-        isDragging && "opacity-50"
+        isDragging && "opacity-50 shadow-lg scale-105"
       )}
     >
       <div className="flex items-start gap-3">
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground"
+          className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground transition-colors"
+          title="Drag to reorder"
         >
           <GripVertical className="h-4 w-4" />
         </div>
@@ -144,7 +145,7 @@ const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
               {task.priority}
             </Badge>
             {task.linkedNoteId && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs cursor-pointer hover:bg-accent" onClick={() => onTaskClick && onTaskClick(task.linkedNoteId)}>
                 <ExternalLink className="h-3 w-3 mr-1" />
                 Note
               </Badge>
@@ -280,23 +281,30 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    if (active.id !== over?.id && over?.id) {
       const oldIndex = filteredTasks.findIndex((task) => task.id === active.id);
-      const newIndex = filteredTasks.findIndex((task) => task.id === over?.id);
+      const newIndex = filteredTasks.findIndex((task) => task.id === over.id);
       
-      const reorderedTasks = arrayMove(filteredTasks, oldIndex, newIndex);
-      
-      if (onReorderTasks) {
-        // Reorder all tasks, not just filtered ones
-        const reorderedAllTasks = [...tasks];
-        reorderedTasks.forEach((task, index) => {
-          const taskIndex = reorderedAllTasks.findIndex(t => t.id === task.id);
-          if (taskIndex !== -1) {
-            reorderedAllTasks.splice(taskIndex, 1);
-            reorderedAllTasks.splice(index, 0, task);
-          }
-        });
-        onReorderTasks(reorderedAllTasks);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedTasks = arrayMove(filteredTasks, oldIndex, newIndex);
+        
+        if (onReorderTasks) {
+          // Create a new array with all tasks, maintaining the new order for filtered tasks
+          const allTasksMap = new Map(tasks.map(task => [task.id, task]));
+          const reorderedAllTasks = [...tasks];
+          
+          // Remove the reordered tasks from their original positions
+          const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
+          const nonFilteredTasks = reorderedAllTasks.filter(task => !filteredTaskIds.has(task.id));
+          
+          // Insert reordered tasks at appropriate positions
+          const finalTasks = [...nonFilteredTasks];
+          reorderedTasks.forEach((task, index) => {
+            finalTasks.splice(index, 0, task);
+          });
+          
+          onReorderTasks(finalTasks);
+        }
       }
     }
   };
