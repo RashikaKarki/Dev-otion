@@ -194,7 +194,7 @@ serve(async (req) => {
 
 IMPORTANT RULES:
 1. ONLY use information from the provided context below
-2. If the context doesn't contain enough information to answer the question, say "No notes available so I can't answer this question."
+2. If the context doesn't contain enough information to answer the question, say "I don't have info to provide that answer"
 3. Do not use any external knowledge or make assumptions beyond what's in the context
 4. When referencing information, mention which note it comes from by using the note title in quotes
 5. Keep responses concise and helpful
@@ -206,7 +206,7 @@ ${context}
 User question: ${message}
 
 Please provide a helpful answer based only on the information in your notes above. When referencing specific information, mention which note it comes from.`
-      : `No notes available so I can't answer this question.
+      : `I don't have info to provide that answer
 
 💡 Dev tip: Add some notes related to "${message}" to build your personal knowledge base. The more context you provide, the better I can assist you with code snippets, project documentation, or technical concepts!`;
 
