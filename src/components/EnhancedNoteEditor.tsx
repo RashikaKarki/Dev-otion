@@ -326,7 +326,7 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
           <Edit3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <h2 className="text-xl font-semibold mb-2">Select a note to edit</h2>
           <p className="text-sm">Choose a note from the sidebar or create a new one</p>
-          <p className="text-xs mt-2">⌘N to create a new note • ⌘` to add code block</p>
+          <p className="text-xs mt-2">⌘⇧N to create a new note • ⌘` to add code block</p>
         </div>
       </div>
     );

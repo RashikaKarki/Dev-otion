@@ -171,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 border-t border-sidebar-border">
         <div className="text-xs text-muted-foreground space-y-1">
           <div>⌘K - Command palette</div>
-          <div>⌘N - New note</div>
+          <div>⌘⇧N - New note</div>
           <div>⌘1/2/3 - Switch views</div>
         </div>
       </div>

@@ -102,9 +102,11 @@ export const DevWorkspace = () => {
             e.preventDefault();
             setShowCommandPalette(true);
             break;
-          case 'n':
-            e.preventDefault();
-            handleCreateNewNote();
+          case 'N': // Shift+N for new note (uppercase N indicates shift is pressed)
+            if (e.shiftKey) {
+              e.preventDefault();
+              handleCreateNewNote();
+            }
             break;
           case '1':
             e.preventDefault();
