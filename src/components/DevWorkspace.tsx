@@ -106,8 +106,8 @@ export const DevWorkspace = () => {
             e.preventDefault();
             setShowCommandPalette(true);
             break;
-          case 'n': // Alt+N for new note (avoiding browser conflict with Ctrl+Shift+N)
-            if (e.altKey) {
+          case 'n': // Ctrl+Cmd+N for new note
+            if (e.metaKey) {
               e.preventDefault();
               handleCreateNewNote();
             }
