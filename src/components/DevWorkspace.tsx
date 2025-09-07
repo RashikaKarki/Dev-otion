@@ -324,6 +324,7 @@ export const DevWorkspace = () => {
             onNoteUpdate={handleUpdateNote}
             onToggleTask={handleToggleTask}
             linkedTasks={tasks.filter(task => task.linkedNoteId === activeNote.id)}
+            onBack={() => setActiveNote(null)}
           />
         )}
         

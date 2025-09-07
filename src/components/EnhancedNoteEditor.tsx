@@ -17,7 +17,8 @@ import {
   Eye,
   Edit3,
   Terminal,
-  Plus
+  Plus,
+  ArrowLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +36,7 @@ interface EnhancedNoteEditorProps {
   onNoteUpdate: (note: Note) => void;
   onToggleTask?: (taskId: string) => void;
   linkedTasks?: Array<{id: string; title: string; completed: boolean; priority: 'low' | 'medium' | 'high'}>;
+  onBack?: () => void;
 }
 
 interface CodeBlockData {
@@ -45,7 +47,7 @@ interface CodeBlockData {
   endLine: number;
 }
 
-export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onToggleTask, linkedTasks = [] }) => {
+export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onToggleTask, linkedTasks = [], onBack }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -320,14 +322,27 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
       {/* Header */}
       <header className="border-b border-border p-4 bg-card/50">
         <div className="flex items-center justify-between mb-4">
-          <Input
-            ref={titleRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={handleSave}
-            placeholder="Note title..."
-            className="text-lg font-semibold bg-transparent border-none p-0 focus-visible:ring-0 flex-1"
-          />
+          <div className="flex items-center space-x-4 flex-1">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Notes
+              </Button>
+            )}
+            <Input
+              ref={titleRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={handleSave}
+              placeholder="Note title..."
+              className="text-lg font-semibold bg-transparent border-none p-0 focus-visible:ring-0 flex-1"
+            />
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
