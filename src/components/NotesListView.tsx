@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Search, 
   Plus, 
@@ -152,9 +153,9 @@ export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
   };
 
   return (
-    <div className="flex-1 bg-background">
+    <div className="flex-1 flex flex-col bg-background h-full">
       {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 shrink-0">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -174,7 +175,8 @@ export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
         </div>
       </div>
 
-      <div className="px-6 py-6">
+      <ScrollArea className="flex-1">
+        <div className="px-6 py-6">
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <div className="relative">
@@ -380,7 +382,8 @@ export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
             </Button>
           </div>
         )}
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }
