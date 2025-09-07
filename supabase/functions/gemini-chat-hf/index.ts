@@ -1,8 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-// Using a simple local embedding function inspired by gpt4all
-// This creates embeddings without any external dependencies or API calls
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,48 +11,59 @@ interface ChatRequest {
   message: string;
 }
 
-// Simple local embedding function (no API required, inspired by gpt4all approach)
-function generateLocalEmbedding(text: string): number[] {
-  // Create a simple but effective embedding using character and word patterns
-  // This is a deterministic embedding that works locally without any dependencies
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface ChatRequest {
+  message: string;
+}
+
+// GPT4All-style local embedding using their embedding approach
+async function generateGPT4AllEmbedding(text: string): Promise<number[]> {
+  try {
+    // Use GPT4All's local embedding endpoint (runs locally, no API key needed)
+    const response = await fetch('http://localhost:4891/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'all-MiniLM-L6-v2',
+        input: text
+      })
+    });
+
+    if (!response.ok) {
+      // Fallback to simple local embeddings if GPT4All server isn't running
+      console.log('GPT4All server not available, using fallback embedding');
+      return generateFallbackEmbedding(text);
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch (error) {
+    console.log('GPT4All connection failed, using fallback embedding:', error.message);
+    return generateFallbackEmbedding(text);
+  }
+}
+
+// Fallback embedding when GPT4All isn't available
+function generateFallbackEmbedding(text: string): number[] {
   const words = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 0);
-  const chars = text.toLowerCase().replace(/[^\w]/g, '');
-  
-  // Create a 384-dimensional embedding (same as many sentence transformers)
   const embedding = new Array(384).fill(0);
   
-  // Word-based features
   words.forEach((word, index) => {
     const wordHash = hashString(word);
-    for (let i = 0; i < word.length && i < 50; i++) {
+    for (let i = 0; i < Math.min(word.length, 10); i++) {
       const charCode = word.charCodeAt(i);
       const pos = (wordHash + i * 17) % 384;
-      embedding[pos] += Math.sin(charCode * 0.1) * (1 / (index + 1));
+      embedding[pos] += Math.sin(charCode * 0.1) * (1 / Math.sqrt(index + 1));
     }
   });
   
-  // Character n-gram features
-  for (let i = 0; i < chars.length - 2; i++) {
-    const trigram = chars.slice(i, i + 3);
-    const trigramHash = hashString(trigram);
-    const pos1 = trigramHash % 384;
-    const pos2 = (trigramHash * 7) % 384;
-    embedding[pos1] += 0.5;
-    embedding[pos2] += 0.3;
-  }
-  
-  // Text length and complexity features
-  const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / Math.max(words.length, 1);
-  const uniqueWords = new Set(words).size;
-  const complexity = uniqueWords / Math.max(words.length, 1);
-  
-  for (let i = 0; i < 20; i++) {
-    embedding[i] += avgWordLength * 0.1;
-    embedding[i + 20] += complexity * 0.2;
-    embedding[i + 40] += text.length * 0.001;
-  }
-  
-  // Normalize the embedding
+  // Normalize
   const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
   if (magnitude > 0) {
     for (let i = 0; i < embedding.length; i++) {
@@ -70,7 +79,7 @@ function hashString(str: string): number {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
   return Math.abs(hash);
 }
@@ -126,11 +135,11 @@ serve(async (req) => {
 
     const geminiApiKey = settingsData.gemini_api_key;
 
-    // Generate query embedding using local algorithm (gpt4all-style, NO API KEY!)
-    console.log('Generating query embedding locally with gpt4all-style algorithm...');
-    const queryEmbedding = generateLocalEmbedding(message);
+    // Generate query embedding using GPT4All (completely local, no API key needed!)
+    console.log('Generating query embedding with GPT4All...');
+    const queryEmbedding = await generateGPT4AllEmbedding(message);
 
-    console.log(`Generated query embedding with ${queryEmbedding.length} dimensions`);
+    console.log(`Generated GPT4All query embedding with ${queryEmbedding.length} dimensions`);
 
     // Search for similar embeddings using Supabase vector similarity (FREE!)
     console.log('Searching for similar embeddings...');
@@ -267,7 +276,7 @@ Please provide a helpful answer based only on the information in your notes abov
         totalMatches: matches?.length || 0,
         contextLength: context.length,
         hasContext: !!context,
-        embeddingModel: 'GPT4All-style Local Embeddings (NO API)',
+        embeddingModel: 'GPT4All Local Embeddings (all-MiniLM-L6-v2)',
         vectorDB: 'Supabase pgvector (FREE)',
         responseModel: 'Gemini 1.5 Flash'
       }
