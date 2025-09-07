@@ -11,7 +11,8 @@ import {
   Brain, 
   Calendar,
   Hash,
-  Command
+  Command,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +31,7 @@ interface CommandPaletteProps {
   notes: Note[];
   onNoteSelect: (note: Note) => void;
   onNewNote: () => void;
+  onViewChange: (view: 'notes' | 'tasks' | 'mindmap' | 'chat') => void;
 }
 
 interface Command {
@@ -47,7 +49,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onClose,
   notes,
   onNoteSelect,
-  onNewNote
+  onNewNote,
+  onViewChange
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -68,7 +71,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       description: 'Switch to task manager',
       icon: <CheckSquare className="h-4 w-4" />,
       action: () => {
-        // This would be handled by the parent component
+        onViewChange('tasks');
         onClose();
       },
       group: 'actions',
@@ -80,11 +83,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       description: 'Switch to mind map view',
       icon: <Brain className="h-4 w-4" />,
       action: () => {
-        // This would be handled by the parent component
+        onViewChange('mindmap');
         onClose();
       },
       group: 'actions',
       keywords: ['mindmap', 'visual', 'connections']
+    },
+    {
+      id: 'ai-chat',
+      title: 'AI Chat',
+      description: 'Chat with AI about your notes',
+      icon: <Sparkles className="h-4 w-4" />,
+      action: () => {
+        onViewChange('chat');
+        onClose();
+      },
+      group: 'actions',
+      keywords: ['ai', 'chat', 'assistant', 'bot', 'gemini', 'ask', 'question']
     }
   ];
 

@@ -418,6 +418,10 @@ export const DevWorkspace = () => {
           handleCreateNewNote();
           setShowCommandPalette(false);
         }}
+        onViewChange={(view) => {
+          setActiveView(view);
+          setShowCommandPalette(false);
+        }}
       />
     </div>
   );
