@@ -21,6 +21,7 @@ interface Task {
   completed: boolean;
   priority: 'low' | 'medium' | 'high';
   createdAt: Date;
+  linkedNoteId?: string;
 }
 
 export const DevWorkspace = () => {
@@ -106,12 +107,12 @@ export const DevWorkspace = () => {
     });
   };
 
-  const createNewTask = (title: string) => {
+  const createNewTask = (title: string, priority: 'low' | 'medium' | 'high' = 'medium') => {
     const newTask: Task = {
       id: crypto.randomUUID(),
       title,
       completed: false,
-      priority: 'medium',
+      priority,
       createdAt: new Date()
     };
     setTasks(prev => [newTask, ...prev]);
@@ -132,6 +133,57 @@ export const DevWorkspace = () => {
   const deleteTask = (taskId: string) => {
     setTasks(prev => prev.filter(task => task.id !== taskId));
   };
+
+  const updateTask = (taskId: string, updates: Partial<Task>) => {
+    setTasks(prev => prev.map(task =>
+      task.id === taskId ? { ...task, ...updates } : task
+    ));
+  };
+
+  const handleTaskClick = (noteId: string) => {
+    const note = notes.find(n => n.id === noteId);
+    if (note) {
+      setActiveNote(note);
+      setActiveView('notes');
+    }
+  };
+
+  // Extract tasks from notes
+  const extractTasksFromNotes = () => {
+    const noteTasks: Task[] = [];
+    notes.forEach(note => {
+      const taskRegex = /- \[ \] (.+)|^\s*\* \[ \] (.+)|^\s*- \[ \] (.+)/gm;
+      let match;
+      while ((match = taskRegex.exec(note.content)) !== null) {
+        const taskTitle = match[1] || match[2] || match[3];
+        if (taskTitle && !tasks.some(t => t.title === taskTitle.trim() && t.linkedNoteId === note.id)) {
+          noteTasks.push({
+            id: crypto.randomUUID(),
+            title: taskTitle.trim(),
+            completed: false,
+            priority: 'medium',
+            createdAt: new Date(),
+            linkedNoteId: note.id
+          });
+        }
+      }
+    });
+    
+    if (noteTasks.length > 0) {
+      setTasks(prev => [...noteTasks, ...prev]);
+      toast({
+        title: "Tasks extracted",
+        description: `Found ${noteTasks.length} tasks in your notes`,
+      });
+    }
+  };
+
+  // Auto-extract tasks when notes change
+  useEffect(() => {
+    if (notes.length > 0) {
+      extractTasksFromNotes();
+    }
+  }, [notes.map(n => n.content).join('')]);
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -160,6 +212,8 @@ export const DevWorkspace = () => {
             onCreateTask={createNewTask}
             onToggleTask={toggleTask}
             onDeleteTask={deleteTask}
+            onUpdateTask={updateTask}
+            onTaskClick={handleTaskClick}
           />
         )}
         

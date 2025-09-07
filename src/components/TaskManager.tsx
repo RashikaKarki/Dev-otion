@@ -20,7 +20,11 @@ import {
   Filter,
   ArrowUp,
   ArrowRight,
-  ArrowDown
+  ArrowDown,
+  Edit2,
+  Save,
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,30 +34,57 @@ interface Task {
   completed: boolean;
   priority: 'low' | 'medium' | 'high';
   createdAt: Date;
+  linkedNoteId?: string;
 }
 
 interface TaskManagerProps {
   tasks: Task[];
-  onCreateTask: (title: string) => void;
+  onCreateTask: (title: string, priority: 'low' | 'medium' | 'high') => void;
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
+  onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  onTaskClick?: (noteId: string) => void;
 }
 
 export const TaskManager: React.FC<TaskManagerProps> = ({
   tasks,
   onCreateTask,
   onToggleTask,
-  onDeleteTask
+  onDeleteTask,
+  onUpdateTask,
+  onTaskClick
 }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [editingTask, setEditingTask] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
 
   const handleCreateTask = () => {
     if (newTaskTitle.trim()) {
-      onCreateTask(newTaskTitle.trim());
+      onCreateTask(newTaskTitle.trim(), newTaskPriority);
       setNewTaskTitle('');
+      setNewTaskPriority('medium');
     }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task.id);
+    setEditTitle(task.title);
+  };
+
+  const handleSaveEdit = (taskId: string) => {
+    if (editTitle.trim()) {
+      onUpdateTask(taskId, { title: editTitle.trim() });
+    }
+    setEditingTask(null);
+    setEditTitle('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTask(null);
+    setEditTitle('');
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -115,18 +146,30 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
         </div>
 
         {/* New Task Input */}
-        <div className="flex gap-2 mb-4">
-          <Input
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreateTask()}
-            placeholder="Add a new task... (Press Enter)"
-            className="flex-1"
-          />
-          <Button onClick={handleCreateTask} className="bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Task
-          </Button>
+        <div className="space-y-3 mb-4">
+          <div className="flex gap-2">
+            <Input
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateTask()}
+              placeholder="Add a new task... (Press Enter)"
+              className="flex-1"
+            />
+            <Select value={newTaskPriority} onValueChange={(value: 'low' | 'medium' | 'high') => setNewTaskPriority(value)}>
+              <SelectTrigger className="w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handleCreateTask} className="bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Task
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -199,14 +242,59 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
                       <Badge variant={getPriorityColor(task.priority) as any} className="text-xs">
                         {task.priority}
                       </Badge>
+                      {task.linkedNoteId && (
+                        <Badge variant="outline" className="text-xs">
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Note
+                        </Badge>
+                      )}
                     </div>
                     
-                    <h3 className={cn(
-                      "font-medium",
-                      task.completed && "line-through text-muted-foreground"
-                    )}>
-                      {task.title}
-                    </h3>
+                    {editingTask === task.id ? (
+                      <div className="flex items-center gap-2 mb-2">
+                        <Input
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEdit(task.id);
+                            if (e.key === 'Escape') handleCancelEdit();
+                          }}
+                          className="flex-1 h-8"
+                          autoFocus
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSaveEdit(task.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Save className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCancelEdit}
+                          className="h-8 w-8 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <h3 
+                        className={cn(
+                          "font-medium cursor-pointer",
+                          task.completed && "line-through text-muted-foreground",
+                          task.linkedNoteId && "hover:text-primary"
+                        )}
+                        onClick={() => {
+                          if (task.linkedNoteId && onTaskClick) {
+                            onTaskClick(task.linkedNoteId);
+                          }
+                        }}
+                      >
+                        {task.title}
+                      </h3>
+                    )}
                     
                     <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
@@ -216,14 +304,24 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
                     </div>
                   </div>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-fast h-8 w-8 p-0"
-                    onClick={() => onDeleteTask(task.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-fast">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleEditTask(task)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => onDeleteTask(task.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
