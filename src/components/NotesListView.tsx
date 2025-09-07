@@ -100,12 +100,14 @@ export function NotesListView({ onNoteSelect, onNewNote }: NotesListViewProps) {
         });
       });
       
-      // Boost recent notes slightly
-      const daysSinceUpdate = (Date.now() - new Date(note.updated_at).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceUpdate < 7) score += 1;
+      // Only boost recent notes if they already have a match (score > 0)
+      if (score > 0) {
+        const daysSinceUpdate = (Date.now() - new Date(note.updated_at).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceUpdate < 7) score += 1;
+      }
       
       return { ...note, searchScore: score };
-    }).filter(note => note.searchScore > 0);
+    }).filter(note => note.searchScore && note.searchScore > 0);
   }, [notes, searchQuery]);
 
   // Filter by tag
