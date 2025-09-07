@@ -31,6 +31,10 @@ interface MindMapViewerProps {
 export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [mindMapUrl, setMindMapUrl] = useState<string | null>(null);
+  const [selectedInsight, setSelectedInsight] = useState<{
+    type: 'note' | 'tag' | 'keyword' | null;
+    data: any;
+  }>({ type: null, data: null });
 
   const generateMindMap = async () => {
     setIsGenerating(true);
@@ -42,7 +46,7 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
     }, 2000);
   };
 
-  const extractKeywords = (content: string) => {
+  const extractKeywords = (content: string, allContent?: string[]) => {
     const words = content.toLowerCase().split(/\W+/);
     const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'];
     const keywords = words
@@ -71,6 +75,41 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
     ).slice(0, 5);
   };
 
+  const getNotesWithTag = (tag: string) => {
+    return notes.filter(note => note.tags.includes(tag));
+  };
+
+  const getNotesWithKeyword = (keyword: string) => {
+    return notes.filter(note => 
+      note.content.toLowerCase().includes(keyword.toLowerCase()) ||
+      note.title.toLowerCase().includes(keyword.toLowerCase())
+    );
+  };
+
+  const calculateReadingTime = (content: string) => {
+    const wordsPerMinute = 200;
+    const wordCount = content.split(/\s+/).filter(Boolean).length;
+    return Math.max(1, Math.ceil(wordCount / wordsPerMinute));
+  };
+
+  const getRelatedTags = (tag: string) => {
+    const notesWithTag = getNotesWithTag(tag);
+    const relatedTagCounts: Record<string, number> = {};
+    
+    notesWithTag.forEach(note => {
+      note.tags.forEach(t => {
+        if (t !== tag) {
+          relatedTagCounts[t] = (relatedTagCounts[t] || 0) + 1;
+        }
+      });
+    });
+
+    return Object.entries(relatedTagCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([tag, count]) => ({ tag, count }));
+  };
+
   const totalWords = notes.reduce((total, note) => 
     total + note.content.split(/\s+/).filter(Boolean).length, 0
   );
@@ -78,6 +117,10 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
   const allKeywords = notes.length > 0 
     ? extractKeywords(notes.map(n => n.content).join(' '))
     : [];
+
+  const handleNodeSelect = (type: 'note' | 'tag' | 'keyword', data: any) => {
+    setSelectedInsight({ type, data });
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-background overflow-auto">
@@ -131,9 +174,11 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
             notes={notes} 
             activeNote={activeNote}
             onNoteSelect={(noteId) => {
-              console.log('Selected note:', noteId);
-              // Add navigation logic here if needed
+              const note = notes.find(n => n.id === noteId);
+              if (note) handleNodeSelect('note', note);
             }}
+            onTagSelect={(tag) => handleNodeSelect('tag', tag)}
+            onKeywordSelect={(keyword) => handleNodeSelect('keyword', keyword)}
           />
         </div>
 
@@ -151,81 +196,308 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
 
           <div className="flex-1 overflow-auto">
             <div className="p-4 space-y-6">
-              {/* Knowledge Stats */}
-              <div>
-                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                  📊 Knowledge Statistics
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 bg-muted/50 rounded text-center">
-                    <div className="font-semibold text-sm">{notes.length}</div>
-                    <div className="text-xs text-muted-foreground">Notes</div>
-                  </div>
-                  <div className="p-2 bg-muted/50 rounded text-center">
-                    <div className="font-semibold text-sm">{totalWords}</div>
-                    <div className="text-xs text-muted-foreground">Words</div>
-                  </div>
-                  <div className="p-2 bg-muted/50 rounded text-center">
-                    <div className="font-semibold text-sm">{getAllTags().length}</div>
-                    <div className="text-xs text-muted-foreground">Tags</div>
-                  </div>
-                  <div className="p-2 bg-muted/50 rounded text-center">
-                    <div className="font-semibold text-sm">{allKeywords.length}</div>
-                    <div className="text-xs text-muted-foreground">Keywords</div>
+              {/* Dynamic Content Based on Selection */}
+              {selectedInsight.type === null ? (
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    🎯 Getting Started
+                  </h4>
+                  <div className="p-4 bg-gradient-subtle rounded-lg border text-center">
+                    <div className="text-4xl mb-3">🔍</div>
+                    <div className="font-medium text-sm mb-2">Explore Your Knowledge</div>
+                    <div className="text-xs text-muted-foreground mb-3">
+                      Click on any node in the mind map to view detailed insights
+                    </div>
+                    <div className="space-y-1 text-xs text-left">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span>Click notes to see content analysis</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>Click tags to explore relationships</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <span>Click keywords to find connections</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Active Note Analysis */}
-              {activeNote && (
+              ) : selectedInsight.type === 'note' ? (
                 <div>
                   <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Current Note Analysis
+                    Note Analysis: {selectedInsight.data.title}
                   </h4>
                   <div className="space-y-3">
-                    <div className="p-3 bg-gradient-subtle rounded-lg border">
-                      <div className="font-medium text-sm mb-2">{activeNote.title}</div>
-                      <div className="text-xs text-muted-foreground mb-2">
-                        {activeNote.content.split(/\s+/).filter(Boolean).length} words • 
-                        {activeNote.content.length} characters
+                    {/* Note Stats */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-2 bg-muted/50 rounded text-center">
+                        <div className="font-semibold text-sm">{selectedInsight.data.content.split(/\s+/).filter(Boolean).length}</div>
+                        <div className="text-xs text-muted-foreground">Words</div>
                       </div>
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {activeNote.tags.map(tag => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            #{tag}
+                      <div className="p-2 bg-muted/50 rounded text-center">
+                        <div className="font-semibold text-sm">{calculateReadingTime(selectedInsight.data.content)}</div>
+                        <div className="text-xs text-muted-foreground">Min Read</div>
+                      </div>
+                      <div className="p-2 bg-muted/50 rounded text-center">
+                        <div className="font-semibold text-sm">{selectedInsight.data.tags.length}</div>
+                        <div className="text-xs text-muted-foreground">Tags</div>
+                      </div>
+                    </div>
+
+                    {/* Content Preview */}
+                    <div className="p-3 bg-muted/50 rounded">
+                      <div className="text-xs font-medium mb-2">Content Preview</div>
+                      <div className="text-xs text-muted-foreground max-h-24 overflow-y-auto">
+                        {selectedInsight.data.content.slice(0, 200)}
+                        {selectedInsight.data.content.length > 200 && '...'}
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    {selectedInsight.data.tags.length > 0 && (
+                      <div>
+                        <div className="text-xs font-medium mb-2">Tags</div>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedInsight.data.tags.map((tag: string) => (
+                            <Badge 
+                              key={tag} 
+                              variant="outline" 
+                              className="text-xs cursor-pointer hover:bg-accent"
+                              onClick={() => handleNodeSelect('tag', tag)}
+                            >
+                              #{tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Keywords */}
+                    <div>
+                      <div className="text-xs font-medium mb-2">Extracted Keywords</div>
+                      <div className="flex flex-wrap gap-1">
+                        {extractKeywords(selectedInsight.data.content).slice(0, 6).map((keyword: string) => (
+                          <Badge 
+                            key={keyword} 
+                            variant="secondary" 
+                            className="text-xs cursor-pointer hover:bg-accent"
+                            onClick={() => handleNodeSelect('keyword', keyword)}
+                          >
+                            {keyword}
                           </Badge>
                         ))}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Keywords: {extractKeywords(activeNote.content).slice(0, 3).join(', ')}
-                      </div>
                     </div>
-                    
+
                     {/* Connected Notes */}
                     <div>
-                      <div className="text-xs font-medium mb-2 text-muted-foreground">
-                        Connected Notes ({getConnectedNotes(activeNote).length})
-                      </div>
+                      <div className="text-xs font-medium mb-2">Connected Notes ({getConnectedNotes(selectedInsight.data).length})</div>
                       <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {getConnectedNotes(activeNote).map(note => (
-                          <div key={note.id} className="p-2 bg-muted/50 rounded text-xs">
+                        {getConnectedNotes(selectedInsight.data).map((note: Note) => (
+                          <div 
+                            key={note.id} 
+                            className="p-2 bg-muted/50 rounded text-xs cursor-pointer hover:bg-accent"
+                            onClick={() => handleNodeSelect('note', note)}
+                          >
                             <div className="font-medium">{note.title}</div>
                             <div className="text-muted-foreground">
-                              {note.tags.filter(tag => activeNote.tags.includes(tag)).length} shared tags
+                              {note.tags.filter(tag => selectedInsight.data.tags.includes(tag)).length} shared tags
                             </div>
                           </div>
                         ))}
-                        {getConnectedNotes(activeNote).length === 0 && (
+                        {getConnectedNotes(selectedInsight.data).length === 0 && (
                           <div className="text-xs text-muted-foreground italic">
-                            No connected notes found. Add tags to create connections.
+                            No connected notes. Add matching tags to create connections.
                           </div>
                         )}
                       </div>
                     </div>
+
+                    {/* Timeline */}
+                    <div className="p-3 bg-muted/50 rounded">
+                      <div className="text-xs font-medium mb-2">Timeline</div>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div>Created: {selectedInsight.data.createdAt.toLocaleDateString()}</div>
+                        <div>Updated: {selectedInsight.data.updatedAt.toLocaleDateString()}</div>
+                        <div>
+                          Age: {Math.ceil((Date.now() - selectedInsight.data.createdAt.getTime()) / (1000 * 60 * 60 * 24))} days
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
+              ) : selectedInsight.type === 'tag' ? (
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    Tag Analysis: #{selectedInsight.data}
+                  </h4>
+                  <div className="space-y-3">
+                    {/* Tag Stats */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 bg-muted/50 rounded text-center">
+                        <div className="font-semibold text-sm">{getNotesWithTag(selectedInsight.data).length}</div>
+                        <div className="text-xs text-muted-foreground">Notes</div>
+                      </div>
+                      <div className="p-2 bg-muted/50 rounded text-center">
+                        <div className="font-semibold text-sm">
+                          {getNotesWithTag(selectedInsight.data).reduce((total, note) => 
+                            total + note.content.split(/\s+/).filter(Boolean).length, 0
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Total Words</div>
+                      </div>
+                    </div>
+
+                    {/* Notes with this tag */}
+                    <div>
+                      <div className="text-xs font-medium mb-2">Notes with this tag</div>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {getNotesWithTag(selectedInsight.data).map((note: Note) => (
+                          <div 
+                            key={note.id} 
+                            className="p-2 bg-muted/50 rounded text-xs cursor-pointer hover:bg-accent"
+                            onClick={() => handleNodeSelect('note', note)}
+                          >
+                            <div className="font-medium">{note.title}</div>
+                            <div className="text-muted-foreground">
+                              {note.content.split(/\s+/).filter(Boolean).length} words
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Related Tags */}
+                    <div>
+                      <div className="text-xs font-medium mb-2">Often used with</div>
+                      <div className="flex flex-wrap gap-1">
+                        {getRelatedTags(selectedInsight.data).map(({ tag, count }) => (
+                          <Badge 
+                            key={tag} 
+                            variant="outline" 
+                            className="text-xs cursor-pointer hover:bg-accent"
+                            onClick={() => handleNodeSelect('tag', tag)}
+                            title={`Used together in ${count} note(s)`}
+                          >
+                            #{tag} ({count})
+                          </Badge>
+                        ))}
+                        {getRelatedTags(selectedInsight.data).length === 0 && (
+                          <div className="text-xs text-muted-foreground italic">
+                            No related tags found yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tag Usage Timeline */}
+                    <div className="p-3 bg-muted/50 rounded">
+                      <div className="text-xs font-medium mb-2">Usage Pattern</div>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        {(() => {
+                          const tagNotes = getNotesWithTag(selectedInsight.data);
+                          const firstUsed = tagNotes.reduce((earliest, note) => 
+                            note.createdAt < earliest ? note.createdAt : earliest, 
+                            tagNotes[0]?.createdAt || new Date()
+                          );
+                          const lastUsed = tagNotes.reduce((latest, note) => 
+                            note.updatedAt > latest ? note.updatedAt : latest, 
+                            tagNotes[0]?.updatedAt || new Date()
+                          );
+                          return (
+                            <>
+                              <div>First used: {firstUsed.toLocaleDateString()}</div>
+                              <div>Last used: {lastUsed.toLocaleDateString()}</div>
+                              <div>Usage frequency: {(tagNotes.length / notes.length * 100).toFixed(1)}% of notes</div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedInsight.type === 'keyword' ? (
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    🔤 Keyword Analysis: {selectedInsight.data}
+                  </h4>
+                  <div className="space-y-3">
+                    {/* Keyword Stats */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 bg-muted/50 rounded text-center">
+                        <div className="font-semibold text-sm">{getNotesWithKeyword(selectedInsight.data).length}</div>
+                        <div className="text-xs text-muted-foreground">Notes</div>
+                      </div>
+                      <div className="p-2 bg-muted/50 rounded text-center">
+                        <div className="font-semibold text-sm">
+                          {(() => {
+                            const keywordNotes = getNotesWithKeyword(selectedInsight.data);
+                            let totalOccurrences = 0;
+                            keywordNotes.forEach(note => {
+                              const content = `${note.title} ${note.content}`.toLowerCase();
+                              const keyword = selectedInsight.data.toLowerCase();
+                              totalOccurrences += (content.match(new RegExp(keyword, 'g')) || []).length;
+                            });
+                            return totalOccurrences;
+                          })()}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Occurrences</div>
+                      </div>
+                    </div>
+
+                    {/* Notes containing this keyword */}
+                    <div>
+                      <div className="text-xs font-medium mb-2">Notes containing "{selectedInsight.data}"</div>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {getNotesWithKeyword(selectedInsight.data).map((note: Note) => {
+                          const content = `${note.title} ${note.content}`.toLowerCase();
+                          const keyword = selectedInsight.data.toLowerCase();
+                          const occurrences = (content.match(new RegExp(keyword, 'g')) || []).length;
+                          return (
+                            <div 
+                              key={note.id} 
+                              className="p-2 bg-muted/50 rounded text-xs cursor-pointer hover:bg-accent"
+                              onClick={() => handleNodeSelect('note', note)}
+                            >
+                              <div className="font-medium">{note.title}</div>
+                              <div className="text-muted-foreground">
+                                {occurrences} occurrence{occurrences !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Context Analysis */}
+                    <div className="p-3 bg-muted/50 rounded">
+                      <div className="text-xs font-medium mb-2">Context Preview</div>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {getNotesWithKeyword(selectedInsight.data).slice(0, 3).map((note: Note) => {
+                          const content = note.content.toLowerCase();
+                          const keyword = selectedInsight.data.toLowerCase();
+                          const index = content.indexOf(keyword);
+                          if (index === -1) return null;
+                          
+                          const start = Math.max(0, index - 50);
+                          const end = Math.min(content.length, index + keyword.length + 50);
+                          const preview = note.content.slice(start, end);
+                          
+                          return (
+                            <div key={note.id} className="text-xs text-muted-foreground border-l-2 border-accent pl-2">
+                              ...{preview}...
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Popular Tags */}
               <div>

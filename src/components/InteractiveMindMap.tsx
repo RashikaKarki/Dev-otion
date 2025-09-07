@@ -37,12 +37,16 @@ interface InteractiveMindMapProps {
   notes: Note[];
   activeNote: Note | null;
   onNoteSelect?: (noteId: string) => void;
+  onTagSelect?: (tag: string) => void;
+  onKeywordSelect?: (keyword: string) => void;
 }
 
 export const InteractiveMindMap: React.FC<InteractiveMindMapProps> = ({
   notes,
   activeNote,
-  onNoteSelect
+  onNoteSelect,
+  onTagSelect,
+  onKeywordSelect
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -353,8 +357,14 @@ export const InteractiveMindMap: React.FC<InteractiveMindMapProps> = ({
     node.on("click", (event, d) => {
       event.stopPropagation();
       setSelectedNode(d);
+      
       if (d.type === 'note' && onNoteSelect) {
         onNoteSelect(d.id);
+      } else if (d.type === 'tag' && onTagSelect) {
+        const tagName = d.title.replace('#', '');
+        onTagSelect(tagName);
+      } else if (d.type === 'keyword' && onKeywordSelect) {
+        onKeywordSelect(d.title);
       }
     });
 
