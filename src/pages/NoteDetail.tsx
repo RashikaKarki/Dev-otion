@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotes } from '@/hooks/useNotes';
 import { useTasks } from '@/hooks/useTasks';
+import { useAuth } from '@/hooks/useAuth';
 import { EnhancedNoteEditor } from '@/components/EnhancedNoteEditor';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FileText } from 'lucide-react';
@@ -11,7 +12,15 @@ export default function NoteDetail() {
   const navigate = useNavigate();
   const { notes, updateNote } = useNotes();
   const { toggleTask } = useTasks();
+  const { user, loading } = useAuth();
   const [currentNote, setCurrentNote] = useState<any>(null);
+
+  // Authentication check
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     if (id && notes.length > 0) {
@@ -49,6 +58,21 @@ export default function NoteDetail() {
       });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50 animate-pulse" />
+          <h2 className="text-lg font-medium mb-2">Loading...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect via useEffect
+  }
 
   if (!currentNote) {
     return (

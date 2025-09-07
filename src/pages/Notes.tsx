@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotes, Note as BaseNote } from '@/hooks/useNotes';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -30,11 +31,19 @@ interface NoteWithSearch extends BaseNote {
 export default function Notes() {
   const navigate = useNavigate();
   const { notes, createNote } = useNotes();
+  const { user, loading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'title' | 'relevance'>('updated');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterTag, setFilterTag] = useState<string>('all');
+
+  // Authentication check
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
 
   // Extract all unique tags
   const allTags = useMemo(() => {
@@ -166,6 +175,20 @@ export default function Notes() {
       : content;
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50 animate-pulse" />
+          <h2 className="text-lg font-medium mb-2">Loading...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect via useEffect
+  }
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
