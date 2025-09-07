@@ -151,6 +151,12 @@ export const DevWorkspace = () => {
     });
   };
 
+  const handleReorderTasks = async (reorderedTasks: Task[]) => {
+    // For now, we'll just update each task with a new priority or order field
+    // In a real app, you'd want to add an order field to the database
+    console.log('Reordering tasks:', reorderedTasks.map(t => t.title));
+  };
+
   const handleTaskClick = (noteId: string) => {
     const note = supabaseNotes.find(n => n.id === noteId);
     if (note) {
@@ -237,6 +243,7 @@ export const DevWorkspace = () => {
             onDeleteTask={handleDeleteTask}
             onUpdateTask={handleUpdateTask}
             onTaskClick={handleTaskClick}
+            onReorderTasks={handleReorderTasks}
           />
         )}
         

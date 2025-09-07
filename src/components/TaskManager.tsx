@@ -24,9 +24,29 @@ import {
   Edit2,
   Save,
   X,
-  ExternalLink
+  ExternalLink,
+  GripVertical
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Task {
   id: string;
@@ -44,7 +64,169 @@ interface TaskManagerProps {
   onDeleteTask: (taskId: string) => void;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
   onTaskClick?: (noteId: string) => void;
+  onReorderTasks?: (tasks: Task[]) => void;
 }
+
+interface SortableTaskItemProps {
+  task: Task;
+  isEditing: boolean;
+  editTitle: string;
+  onEditTask: (task: Task) => void;
+  onSaveEdit: (taskId: string) => void;
+  onCancelEdit: () => void;
+  onToggleTask: (taskId: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  onTaskClick?: (noteId: string) => void;
+  onEditTitleChange: (value: string) => void;
+  getPriorityIcon: (priority: string) => JSX.Element | null;
+  getPriorityColor: (priority: string) => string;
+}
+
+const SortableTaskItem: React.FC<SortableTaskItemProps> = ({
+  task,
+  isEditing,
+  editTitle,
+  onEditTask,
+  onSaveEdit,
+  onCancelEdit,
+  onToggleTask,
+  onDeleteTask,
+  onTaskClick,
+  onEditTitleChange,
+  getPriorityIcon,
+  getPriorityColor,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group p-4 rounded-lg border transition-smooth hover:shadow-md",
+        task.completed 
+          ? "bg-muted/30 border-muted" 
+          : "bg-card border-border hover:border-primary/50",
+        isDragging && "opacity-50"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground"
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+        
+        <Checkbox
+          checked={task.completed}
+          onCheckedChange={() => onToggleTask(task.id)}
+          className="mt-1"
+        />
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            {getPriorityIcon(task.priority)}
+            <Badge variant={getPriorityColor(task.priority) as any} className="text-xs">
+              {task.priority}
+            </Badge>
+            {task.linkedNoteId && (
+              <Badge variant="outline" className="text-xs">
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Note
+              </Badge>
+            )}
+          </div>
+          
+          {isEditing ? (
+            <div className="flex items-center gap-2 mb-2">
+              <Input
+                value={editTitle}
+                onChange={(e) => onEditTitleChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onSaveEdit(task.id);
+                  if (e.key === 'Escape') onCancelEdit();
+                }}
+                className="flex-1 h-8"
+                autoFocus
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSaveEdit(task.id)}
+                className="h-8 w-8 p-0"
+              >
+                <Save className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCancelEdit}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <h3 
+              className={cn(
+                "font-medium cursor-pointer",
+                task.completed && "line-through text-muted-foreground",
+                task.linkedNoteId && "hover:text-primary"
+              )}
+              onClick={() => {
+                if (task.linkedNoteId && onTaskClick) {
+                  onTaskClick(task.linkedNoteId);
+                }
+              }}
+            >
+              {task.title}
+            </h3>
+          )}
+          
+          <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            <span>
+              Created {task.createdAt.toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-fast">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onEditTask(task)}
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onDeleteTask(task.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const TaskManager: React.FC<TaskManagerProps> = ({
   tasks,
@@ -52,14 +234,22 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
   onToggleTask,
   onDeleteTask,
   onUpdateTask,
-  onTaskClick
+  onTaskClick,
+  onReorderTasks
 }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('pending');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const handleCreateTask = () => {
     if (newTaskTitle.trim()) {
@@ -85,6 +275,30 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
   const handleCancelEdit = () => {
     setEditingTask(null);
     setEditTitle('');
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = filteredTasks.findIndex((task) => task.id === active.id);
+      const newIndex = filteredTasks.findIndex((task) => task.id === over?.id);
+      
+      const reorderedTasks = arrayMove(filteredTasks, oldIndex, newIndex);
+      
+      if (onReorderTasks) {
+        // Reorder all tasks, not just filtered ones
+        const reorderedAllTasks = [...tasks];
+        reorderedTasks.forEach((task, index) => {
+          const taskIndex = reorderedAllTasks.findIndex(t => t.id === task.id);
+          if (taskIndex !== -1) {
+            reorderedAllTasks.splice(taskIndex, 1);
+            reorderedAllTasks.splice(index, 0, task);
+          }
+        });
+        onReorderTasks(reorderedAllTasks);
+      }
+    }
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -218,114 +432,36 @@ export const TaskManager: React.FC<TaskManagerProps> = ({
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredTasks.map((task) => (
-              <div
-                key={task.id}
-                className={cn(
-                  "group p-4 rounded-lg border transition-smooth hover:shadow-md",
-                  task.completed 
-                    ? "bg-muted/30 border-muted" 
-                    : "bg-card border-border hover:border-primary/50"
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={task.completed}
-                    onCheckedChange={() => onToggleTask(task.id)}
-                    className="mt-1"
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext 
+              items={filteredTasks.map(task => task.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {filteredTasks.map((task) => (
+                  <SortableTaskItem
+                    key={task.id}
+                    task={task}
+                    isEditing={editingTask === task.id}
+                    editTitle={editTitle}
+                    onEditTask={handleEditTask}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={handleCancelEdit}
+                    onToggleTask={onToggleTask}
+                    onDeleteTask={onDeleteTask}
+                    onTaskClick={onTaskClick}
+                    onEditTitleChange={setEditTitle}
+                    getPriorityIcon={getPriorityIcon}
+                    getPriorityColor={getPriorityColor}
                   />
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      {getPriorityIcon(task.priority)}
-                      <Badge variant={getPriorityColor(task.priority) as any} className="text-xs">
-                        {task.priority}
-                      </Badge>
-                      {task.linkedNoteId && (
-                        <Badge variant="outline" className="text-xs">
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Note
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    {editingTask === task.id ? (
-                      <div className="flex items-center gap-2 mb-2">
-                        <Input
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveEdit(task.id);
-                            if (e.key === 'Escape') handleCancelEdit();
-                          }}
-                          className="flex-1 h-8"
-                          autoFocus
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSaveEdit(task.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Save className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleCancelEdit}
-                          className="h-8 w-8 p-0"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <h3 
-                        className={cn(
-                          "font-medium cursor-pointer",
-                          task.completed && "line-through text-muted-foreground",
-                          task.linkedNoteId && "hover:text-primary"
-                        )}
-                        onClick={() => {
-                          if (task.linkedNoteId && onTaskClick) {
-                            onTaskClick(task.linkedNoteId);
-                          }
-                        }}
-                      >
-                        {task.title}
-                      </h3>
-                    )}
-                    
-                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span>
-                        Created {task.createdAt.toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-fast">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleEditTask(task)}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => onDeleteTask(task.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </ScrollArea>
 

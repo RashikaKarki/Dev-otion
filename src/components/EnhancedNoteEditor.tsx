@@ -99,12 +99,33 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
   const handleSave = () => {
     if (!note) return;
     
+    // Parse and create tasks from checkbox format
+    parseAndCreateTasks(content);
+    
     onNoteUpdate({
       ...note,
       title: title || 'Untitled',
       content,
       tags
     });
+  };
+
+  const parseAndCreateTasks = (content: string) => {
+    const checkboxRegex = /^\[\s*\]\s+(.+)$/gm;
+    let match;
+    
+    while ((match = checkboxRegex.exec(content)) !== null) {
+      const taskTitle = match[1].trim();
+      if (taskTitle && onCreateTask) {
+        onCreateTask(taskTitle, 'medium', note?.id || '');
+      }
+    }
+    
+    // Remove checkbox tasks from content after creating them
+    const updatedContent = content.replace(checkboxRegex, '');
+    if (updatedContent !== content) {
+      setContent(updatedContent);
+    }
   };
 
   const handleAddTag = () => {
