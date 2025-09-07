@@ -62,6 +62,11 @@ export const DevWorkspace = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when not typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
       if (e.metaKey || e.ctrlKey) {
         switch (e.key) {
           case 'k':
@@ -165,11 +170,12 @@ export const DevWorkspace = () => {
     }
   };
 
-  const handleCreateTaskFromNote = async (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId?: string) => {
+  const handleCreateTaskFromNote = async (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId?: string, completed: boolean = false) => {
     await createSupabaseTask({
       title,
       priority,
-      linked_note_id: linkedNoteId
+      linked_note_id: linkedNoteId,
+      completed
     });
   };
 

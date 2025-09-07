@@ -32,7 +32,7 @@ interface Note {
 interface EnhancedNoteEditorProps {
   note: Note | null;
   onNoteUpdate: (note: Note) => void;
-  onCreateTask?: (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId: string) => void;
+  onCreateTask?: (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId: string, completed?: boolean) => void;
 }
 
 interface CodeBlockData {
@@ -111,18 +111,36 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
   };
 
   const parseAndCreateTasks = (content: string) => {
-    const checkboxRegex = /^\[\s*\]\s+(.+)$/gm;
+    if (!onCreateTask) return;
+    
+    // Parse unchecked tasks: - [ ] task title
+    const uncheckedRegex = /^-\s*\[\s*\]\s+(.+)$/gm;
     let match;
     
-    while ((match = checkboxRegex.exec(content)) !== null) {
+    while ((match = uncheckedRegex.exec(content)) !== null) {
       const taskTitle = match[1].trim();
-      if (taskTitle && onCreateTask) {
+      if (taskTitle) {
         onCreateTask(taskTitle, 'medium', note?.id || '');
       }
     }
     
-    // Remove checkbox tasks from content after creating them
-    const updatedContent = content.replace(checkboxRegex, '');
+    // Parse checked tasks: - [x] or - [X] task title
+    const checkedRegex = /^-\s*\[[xX]\]\s+(.+)$/gm;
+    
+    while ((match = checkedRegex.exec(content)) !== null) {
+      const taskTitle = match[1].trim();
+      if (taskTitle) {
+        // Create task as completed
+        onCreateTask(taskTitle, 'medium', note?.id || '', true);
+      }
+    }
+    
+    // Remove all checkbox tasks from content after creating them
+    const updatedContent = content
+      .replace(/^-\s*\[\s*\]\s+.+$/gm, '')
+      .replace(/^-\s*\[[xX]\]\s+.+$/gm, '')
+      .replace(/\n\n\n+/g, '\n\n'); // Clean up extra line breaks
+      
     if (updatedContent !== content) {
       setContent(updatedContent);
     }
@@ -318,7 +336,7 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
           <Edit3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <h2 className="text-xl font-semibold mb-2">Select a note to edit</h2>
           <p className="text-sm">Choose a note from the sidebar or create a new one</p>
-          <p className="text-xs mt-2">⌘N to create a new note • ⌘` to add code block</p>
+          <p className="text-xs mt-2">⌘N to create a new note • Use "- [ ] task" to create tasks</p>
         </div>
       </div>
     );
@@ -444,59 +462,7 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
             >
               <ListOrdered className="h-4 w-4" />
             </Button>
-            <div className="w-px h-4 bg-border mx-2" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowTaskInput(!showTaskInput)}
-              title="Add Task"
-              className={cn(showTaskInput && "bg-accent")}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
           </div>
-          
-          {/* Task Creation Input */}
-          {showTaskInput && (
-            <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <Input
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="Task title..."
-                  className="flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleCreateTask();
-                    } else if (e.key === 'Escape') {
-                      setShowTaskInput(false);
-                      setNewTaskTitle('');
-                    }
-                  }}
-                  autoFocus
-                />
-                <select
-                  value={newTaskPriority}
-                  onChange={(e) => setNewTaskPriority(e.target.value as 'low' | 'medium' | 'high')}
-                  className="px-2 py-1 text-sm border border-border rounded bg-background"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-                <Button
-                  size="sm"
-                  onClick={handleCreateTask}
-                  disabled={!newTaskTitle.trim()}
-                >
-                  Add Task
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                This task will be linked to "{note?.title || 'this note'}"
-              </p>
-            </div>
-          )}
         </div>
       )}
 
