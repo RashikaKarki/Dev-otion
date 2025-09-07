@@ -6,12 +6,15 @@ import { TaskManager } from './TaskManager';
 import { MindMapViewer } from './MindMapViewer';
 import { NotesListView } from './NotesListView';
 import { CommandPalette } from './CommandPalette';
+import { AIChat } from './AIChat';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes, Note as SupabaseNote } from '@/hooks/useNotes';
 import { useTasks, Task as SupabaseTask } from '@/hooks/useTasks';
+import { useEmbeddings } from '@/hooks/useEmbeddings';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Settings, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
 
 // Legacy interfaces for compatibility with existing components
 interface Note {
@@ -36,9 +39,10 @@ export const DevWorkspace = () => {
   const { user, signOut } = useAuth();
   const { notes: supabaseNotes, createNote, updateNote: updateSupabaseNote, deleteNote: deleteSupabaseNote } = useNotes();
   const { tasks: supabaseTasks, createTask: createSupabaseTask, updateTask: updateSupabaseTask, deleteTask: deleteSupabaseTask, toggleTask: toggleSupabaseTask } = useTasks();
+  const { generateEmbeddings, deleteEmbeddings } = useEmbeddings();
   
   const [activeNote, setActiveNote] = useState<SupabaseNote | null>(null);
-  const [activeView, setActiveView] = useState<'notes' | 'tasks' | 'mindmap'>('notes');
+  const [activeView, setActiveView] = useState<'notes' | 'tasks' | 'mindmap' | 'chat'>('notes');
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('view');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [taskOrder, setTaskOrder] = useState<string[]>([]);
@@ -116,9 +120,13 @@ export const DevWorkspace = () => {
             e.preventDefault();
             setActiveView('tasks');
             break;
-          case '3':
+            case '3':
             e.preventDefault();
             setActiveView('mindmap');
+            break;
+          case '4':
+            e.preventDefault();
+            setActiveView('chat');
             break;
         }
       }
@@ -162,10 +170,25 @@ export const DevWorkspace = () => {
     
     if (supabaseNote) {
       setActiveNote(supabaseNote);
+      
+      // Generate embeddings for updated note (background process)
+      try {
+        await generateEmbeddings(supabaseNote.id, supabaseNote.content, supabaseNote.title);
+      } catch (error) {
+        console.error('Error generating embeddings:', error);
+        // Don't show error to user as this is a background process
+      }
     }
   };
 
   const handleDeleteNote = async (noteId: string) => {
+    // Delete embeddings first
+    try {
+      await deleteEmbeddings(noteId);
+    } catch (error) {
+      console.error('Error deleting embeddings:', error);
+    }
+    
     await deleteSupabaseNote(noteId);
     if (activeNote?.id === noteId) {
       setActiveNote(null);
@@ -280,6 +303,12 @@ export const DevWorkspace = () => {
                 <User className="h-4 w-4" />
                 <span>{user?.email}</span>
               </div>
+              <Link to="/settings">
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+              </Link>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
@@ -356,6 +385,21 @@ export const DevWorkspace = () => {
               updatedAt: new Date(activeNote.updated_at)
             } : null}
           />
+        )}
+
+        {activeView === 'chat' && (
+          <div className="flex-1 p-4">
+            <AIChat 
+              onSelectNote={(noteId) => {
+                const supabaseNote = supabaseNotes.find(n => n.id === noteId);
+                if (supabaseNote) {
+                  setActiveNote(supabaseNote);
+                  setActiveView('notes');
+                  setNoteMode('view');
+                }
+              }}
+            />
+          </div>
         )}
       </main>
 

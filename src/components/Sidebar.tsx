@@ -6,7 +6,8 @@ import {
   FileText, 
   CheckSquare, 
   Brain, 
-  Hash
+  Hash,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,9 +32,9 @@ interface SidebarProps {
   notes: Note[];
   tasks: Task[];
   activeNote: Note | null;
-  activeView: 'notes' | 'tasks' | 'mindmap';
+  activeView: 'notes' | 'tasks' | 'mindmap' | 'chat';
   onNoteSelect: (note: Note) => void;
-  onViewChange: (view: 'notes' | 'tasks' | 'mindmap') => void;
+  onViewChange: (view: 'notes' | 'tasks' | 'mindmap' | 'chat') => void;
   onNewNote: () => void;
   onDeleteNote: (noteId: string) => void;
 }
@@ -128,6 +129,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Brain className="h-4 w-4 mr-2" />
             Mind Map
           </Button>
+
+          <Button
+            variant={activeView === 'chat' ? 'default' : 'ghost'}
+            className={cn(
+              "w-full justify-start",
+              activeView === 'chat' && "bg-sidebar-primary text-sidebar-primary-foreground"
+            )}
+            onClick={() => onViewChange('chat')}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            AI Chat
+          </Button>
         </div>
       </div>
 
@@ -156,6 +169,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </ScrollArea>
         )}
 
+        {activeView === 'chat' && (
+          <ScrollArea className="h-full">
+            <div className="p-4">
+              <div className="text-center text-muted-foreground py-8">
+                <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">AI Chat Assistant</p>
+                <p className="text-xs">Ask questions about your notes</p>
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+
         {activeView === 'notes' && (
           <div className="p-4">
             <div className="text-center text-muted-foreground py-8">
@@ -172,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="text-xs text-muted-foreground space-y-1">
           <div>⌘K - Command palette</div>
           <div>⌘⇧N - New note</div>
-          <div>⌘1/2/3 - Switch views</div>
+          <div>⌘1/2/3/4 - Switch views</div>
         </div>
       </div>
     </div>

@@ -1,1 +1,47 @@
 project_id = "aiukpeyvtujcyuzruljg"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+port = 54320
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://aiukpeyvtujcyuzruljg.supabase.co"]
+jwt_expiry = 3600
+refresh_token_rotation_enabled = true
+security_refresh_token_reuse_interval = 10
+password_min_length = 6
+external_email_enabled = true
+external_phone_enabled = false
+
+[db]
+enabled = true
+port = 54322
+major_version = 15
+
+[functions.gemini-chat]
+verify_jwt = true
+
+[functions.generate-embeddings]
+verify_jwt = true
+
+[edge_runtime]
+enabled = true
+port = 54323
+
+[realtime]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+port = 54325
+
+[analytics]
+enabled = true
+port = 54327
