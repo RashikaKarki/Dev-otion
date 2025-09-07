@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { pipeline } from 'https://esm.sh/@huggingface/transformers@3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,37 +63,16 @@ serve(async (req) => {
 
     const geminiApiKey = settingsData.gemini_api_key;
 
-    // Generate query embedding using HuggingFace (FREE!)
-    console.log('Generating query embedding...');
-    const queryEmbeddingResponse = await fetch(
-      'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: message,
-          options: { wait_for_model: true }
-        })
-      }
+    // Generate query embedding using local HuggingFace Transformers (NO API KEY!)
+    console.log('Generating query embedding locally...');
+    const extractor = await pipeline(
+      "feature-extraction",
+      "Xenova/all-MiniLM-L6-v2",
+      { device: "cpu" }
     );
-
-    if (!queryEmbeddingResponse.ok) {
-      const errorText = await queryEmbeddingResponse.text();
-      console.error('HuggingFace query embedding error:', errorText);
-      throw new Error(`Failed to generate query embedding: ${errorText}`);
-    }
-
-    const queryEmbeddingData = await queryEmbeddingResponse.json();
-    let queryEmbedding;
-    if (Array.isArray(queryEmbeddingData)) {
-      queryEmbedding = queryEmbeddingData;
-    } else if (queryEmbeddingData.embeddings) {
-      queryEmbedding = queryEmbeddingData.embeddings;
-    } else {
-      throw new Error('Unexpected embedding format from HuggingFace');
-    }
+    
+    const embeddingResult = await extractor(message, { pooling: "mean", normalize: true });
+    const queryEmbedding = Array.from(embeddingResult.data);
 
     console.log(`Generated query embedding with ${queryEmbedding.length} dimensions`);
 
@@ -231,7 +211,7 @@ Please provide a helpful answer based only on the information in your notes abov
         totalMatches: matches?.length || 0,
         contextLength: context.length,
         hasContext: !!context,
-        embeddingModel: 'sentence-transformers/all-MiniLM-L6-v2 (FREE)',
+        embeddingModel: 'Xenova/all-MiniLM-L6-v2 (LOCAL)',
         vectorDB: 'Supabase pgvector (FREE)',
         responseModel: 'Gemini 1.5 Flash'
       }

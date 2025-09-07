@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { pipeline } from 'https://esm.sh/@huggingface/transformers@3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -91,54 +92,23 @@ serve(async (req) => {
 
     console.log(`Created ${chunks.length} chunks for processing`);
 
-    // Generate embeddings using HuggingFace Transformers (FREE!)
+    // Generate embeddings using HuggingFace Transformers locally (NO API KEY!)
+    console.log('Initializing local embedding model...');
+    const extractor = await pipeline(
+      "feature-extraction",
+      "Xenova/all-MiniLM-L6-v2",
+      { device: "cpu" }
+    );
+    
     const embeddings = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`);
       
       try {
-        // Using HuggingFace's free sentence-transformers API
-        const embeddingResponse = await fetch(
-          'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              // HuggingFace Inference API is free! No API key needed for public models
-            },
-            body: JSON.stringify({
-              inputs: chunk,
-              options: { wait_for_model: true }
-            })
-          }
-        );
-
-        if (!embeddingResponse.ok) {
-          const errorText = await embeddingResponse.text();
-          console.error(`HuggingFace API error for chunk ${i}:`, embeddingResponse.status, errorText);
-          
-          // If rate limited, wait and retry once
-          if (embeddingResponse.status === 429) {
-            console.log('Rate limited, waiting 2 seconds and retrying...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            continue; // Will retry this chunk in next iteration
-          }
-          continue;
-        }
-
-        const embeddingData = await embeddingResponse.json();
-        
-        // HuggingFace returns the embedding directly as an array
-        let embedding;
-        if (Array.isArray(embeddingData)) {
-          embedding = embeddingData;
-        } else if (embeddingData.embeddings) {
-          embedding = embeddingData.embeddings;
-        } else {
-          console.error(`Unexpected embedding format for chunk ${i}:`, embeddingData);
-          continue;
-        }
+        // Generate embedding locally
+        const embeddingResult = await extractor(chunk, { pooling: "mean", normalize: true });
+        const embedding = Array.from(embeddingResult.data);
 
         console.log(`Generated embedding for chunk ${i}: ${embedding.length} dimensions`);
 
@@ -151,11 +121,6 @@ serve(async (req) => {
         });
 
         console.log(`Successfully processed chunk ${i + 1}`);
-
-        // Add delay to avoid rate limiting on free tier
-        if (i < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
       } catch (error) {
         console.error(`Error generating embedding for chunk ${i}:`, error);
       }
@@ -188,7 +153,7 @@ serve(async (req) => {
       totalChunks: chunks.length,
       noteTitle: noteData.title,
       noteId: noteId,
-      model: 'sentence-transformers/all-MiniLM-L6-v2 (FREE)'
+      model: 'Xenova/all-MiniLM-L6-v2 (LOCAL)'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
