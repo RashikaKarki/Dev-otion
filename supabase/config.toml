@@ -24,10 +24,10 @@ enabled = true
 port = 54322
 major_version = 15
 
-[functions.gemini-chat]
+[functions.generate-embeddings-cohere]
 verify_jwt = true
 
-[functions.generate-embeddings]
+[functions.cohere-chat]
 verify_jwt = true
 
 [edge_runtime]

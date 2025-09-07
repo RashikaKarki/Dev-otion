@@ -14,7 +14,6 @@ interface EmbeddingRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -45,7 +44,6 @@ serve(async (req) => {
     }
 
     const userId = user.id;
-    
     console.log(`Starting embedding generation for note ${noteId}, user ${userId}`);
 
     // Verify the note belongs to the authenticated user
@@ -60,104 +58,88 @@ serve(async (req) => {
       throw new Error('Note not found or access denied');
     }
 
-    console.log(`Note verified: "${noteData.title}" (${noteData.content.length} chars)`);
-
-    // Get user's Gemini API key
+    // Get user's Cohere API key
     const { data: settingsData, error: settingsError } = await supabase
       .from('user_settings')
-      .select('gemini_api_key')
+      .select('cohere_api_key')
       .eq('user_id', userId)
       .single();
 
-    if (settingsError || !settingsData?.gemini_api_key) {
-      console.error('API key error:', settingsError);
-      throw new Error('Gemini API key not found. Please add your API key in settings.');
+    if (settingsError || !settingsData?.cohere_api_key) {
+      throw new Error('Cohere API key not found. Please add your API key in settings.');
     }
 
-    const geminiApiKey = settingsData.gemini_api_key;
-    console.log('API key retrieved successfully');
+    const cohereApiKey = settingsData.cohere_api_key;
+    console.log('Cohere API key retrieved successfully');
 
-    // First, delete existing embeddings for this note
-    const { error: deleteError } = await supabase
-      .from('notes_embeddings')
-      .delete()
-      .eq('note_id', noteId)
-      .eq('user_id', userId);
-
-    if (deleteError) {
-      console.error('Error deleting existing embeddings:', deleteError);
-    } else {
-      console.log('Existing embeddings deleted successfully');
-    }
-
-    // Combine title and content for better context - use the actual note data
+    // Combine title and content for better context
     const fullContent = `${noteData.title}\n\n${noteData.content}`;
     console.log(`Full content length: ${fullContent.length} characters`);
     
-    // Split content into overlapping chunks for better context retention
+    // Split content into chunks with overlap for better context retention
     const chunks = [];
-    const chunkSize = 800; // Increased chunk size
-    const overlap = 200;   // Add overlap between chunks
+    const chunkSize = 1000; // Cohere can handle larger chunks
+    const overlap = 200;
     
     for (let i = 0; i < fullContent.length; i += (chunkSize - overlap)) {
       const chunk = fullContent.slice(i, i + chunkSize);
-      if (chunk.trim().length > 50) { // Only process meaningful chunks
+      if (chunk.trim().length > 50) {
         chunks.push(chunk.trim());
       }
     }
 
     console.log(`Created ${chunks.length} chunks for processing`);
 
-    // Generate embeddings for each chunk
+    // Generate embeddings using Cohere
     const embeddings = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`);
       
       try {
-        // Using text-embedding-004 which is Google's latest embedding model
-        const embeddingResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: "models/text-embedding-004",
-              content: {
-                parts: [{ text: chunk }]
-              },
-              taskType: "RETRIEVAL_DOCUMENT" // Optimize for document retrieval
-            })
-          }
-        );
+        const embeddingResponse = await fetch('https://api.cohere.ai/v1/embed', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cohereApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            texts: [chunk],
+            model: 'embed-english-v3.0', // Latest Cohere embedding model
+            input_type: 'search_document',
+            embedding_types: ['float']
+          })
+        });
 
         if (!embeddingResponse.ok) {
           const errorText = await embeddingResponse.text();
-          console.error(`Embedding API error for chunk ${i}:`, embeddingResponse.status, errorText);
+          console.error(`Cohere API error for chunk ${i}:`, embeddingResponse.status, errorText);
           continue;
         }
 
         const embeddingData = await embeddingResponse.json();
         
-        if (!embeddingData.embedding?.values) {
-          console.error(`No embedding values returned for chunk ${i}`);
+        if (!embeddingData.embeddings?.float?.[0]) {
+          console.error(`No embedding returned for chunk ${i}`);
           continue;
         }
 
-        const embedding = embeddingData.embedding.values;
+        const embedding = embeddingData.embeddings.float[0];
         console.log(`Generated embedding for chunk ${i}: ${embedding.length} dimensions`);
 
         embeddings.push({
-          note_id: noteId,
-          user_id: userId,
-          content_chunk: chunk,
-          embedding: `[${embedding.join(',')}]`, // Store as string array format
-          chunk_index: i
+          id: `${noteId}_chunk_${i}`,
+          embedding: embedding,
+          metadata: {
+            noteId: noteId,
+            userId: userId,
+            chunkIndex: i,
+            noteTitle: noteData.title,
+            content: chunk
+          }
         });
 
-        console.log(`Successfully processed chunk ${i + 1}`);
-
-        // Add a delay to avoid rate limiting (100ms between requests)
+        // Small delay to avoid rate limiting
         if (i < chunks.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -168,23 +150,57 @@ serve(async (req) => {
 
     console.log(`Generated ${embeddings.length} embeddings out of ${chunks.length} chunks`);
 
-    // Insert embeddings into database in batches
+    // Store embeddings in Chroma
     if (embeddings.length > 0) {
-      console.log(`Inserting ${embeddings.length} embeddings into database`);
+      const chromaUrl = Deno.env.get('CHROMA_URL') || 'http://localhost:8000';
+      const collectionName = 'notes_embeddings';
       
-      const { data: insertData, error: insertError } = await supabase
-        .from('notes_embeddings')
-        .insert(embeddings)
-        .select('id');
-
-      if (insertError) {
-        console.error('Database insert error:', insertError);
-        throw insertError;
+      // First, try to get or create the collection
+      try {
+        await fetch(`${chromaUrl}/api/v1/collections/${collectionName}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: collectionName,
+            metadata: { description: 'Note embeddings for RAG' }
+          })
+        });
+      } catch (error) {
+        console.log('Collection might already exist, continuing...');
       }
 
-      console.log(`Successfully inserted ${insertData?.length || 0} embeddings`);
-    } else {
-      console.warn('No embeddings were generated!');
+      // Delete existing embeddings for this note
+      try {
+        await fetch(`${chromaUrl}/api/v1/collections/${collectionName}/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            where: { noteId: noteId }
+          })
+        });
+      } catch (error) {
+        console.log('No existing embeddings to delete');
+      }
+
+      // Add new embeddings
+      const chromaResponse = await fetch(`${chromaUrl}/api/v1/collections/${collectionName}/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: embeddings.map(e => e.id),
+          embeddings: embeddings.map(e => e.embedding),
+          metadatas: embeddings.map(e => e.metadata),
+          documents: embeddings.map(e => e.metadata.content)
+        })
+      });
+
+      if (!chromaResponse.ok) {
+        const errorText = await chromaResponse.text();
+        console.error('Chroma storage error:', errorText);
+        throw new Error(`Failed to store embeddings in Chroma: ${errorText}`);
+      }
+
+      console.log(`Successfully stored ${embeddings.length} embeddings in Chroma`);
     }
 
     return new Response(JSON.stringify({ 
