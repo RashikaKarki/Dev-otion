@@ -237,7 +237,6 @@ export const DevWorkspace = () => {
               updatedAt: new Date(activeNote.updated_at)
             } : null}
             onNoteUpdate={handleUpdateNote}
-            onCreateTask={handleCreateTaskFromNote}
             onToggleTask={handleToggleTask}
             linkedTasks={activeNote ? tasks.filter(task => task.linkedNoteId === activeNote.id) : []}
           />

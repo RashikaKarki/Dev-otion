@@ -33,9 +33,8 @@ interface Note {
 interface EnhancedNoteEditorProps {
   note: Note | null;
   onNoteUpdate: (note: Note) => void;
-  onCreateTask?: (title: string, priority: 'low' | 'medium' | 'high', linkedNoteId: string, completed?: boolean) => void;
   onToggleTask?: (taskId: string) => void;
-  linkedTasks?: Array<{id: string; title: string; completed: boolean}>;
+  linkedTasks?: Array<{id: string; title: string; completed: boolean; priority: 'low' | 'medium' | 'high'}>;
 }
 
 interface CodeBlockData {
@@ -46,7 +45,7 @@ interface CodeBlockData {
   endLine: number;
 }
 
-export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onCreateTask, onToggleTask, linkedTasks = [] }) => {
+export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, onNoteUpdate, onToggleTask, linkedTasks = [] }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -102,51 +101,12 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
   const handleSave = () => {
     if (!note) return;
     
-    // Parse and create tasks from checkbox format
-    parseAndCreateTasks(content);
-    
     onNoteUpdate({
       ...note,
       title: title || 'Untitled',
       content,
       tags
     });
-  };
-
-  const parseAndCreateTasks = (content: string) => {
-    if (!onCreateTask) return;
-    
-    // Parse unchecked tasks: - [ ] task title
-    const uncheckedRegex = /^-\s*\[\s*\]\s+(.+)$/gm;
-    let match;
-    
-    while ((match = uncheckedRegex.exec(content)) !== null) {
-      const taskTitle = match[1].trim();
-      if (taskTitle) {
-        onCreateTask(taskTitle, 'medium', note?.id || '');
-      }
-    }
-    
-    // Parse checked tasks: - [x] or - [X] task title
-    const checkedRegex = /^-\s*\[[xX]\]\s+(.+)$/gm;
-    
-    while ((match = checkedRegex.exec(content)) !== null) {
-      const taskTitle = match[1].trim();
-      if (taskTitle) {
-        // Create task as completed
-        onCreateTask(taskTitle, 'medium', note?.id || '', true);
-      }
-    }
-    
-    // Remove all checkbox tasks from content after creating them
-    const updatedContent = content
-      .replace(/^-\s*\[\s*\]\s+.+$/gm, '')
-      .replace(/^-\s*\[[xX]\]\s+.+$/gm, '')
-      .replace(/\n\n\n+/g, '\n\n'); // Clean up extra line breaks
-      
-    if (updatedContent !== content) {
-      setContent(updatedContent);
-    }
   };
 
   const handleAddTag = () => {
@@ -268,21 +228,18 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
   };
 
   const handleCreateTask = () => {
-    if (!newTaskTitle.trim() || !note || !onCreateTask) return;
-    
-    onCreateTask(newTaskTitle.trim(), newTaskPriority, note.id);
-    setNewTaskTitle('');
-    setShowTaskInput(false);
+    // This function is no longer used as we removed checkbox parsing
+    console.log('Task creation through notes has been disabled');
   };
 
   const renderPreview = (text: string) => {
-    // First, render basic markdown
+    // Enhanced preview with proper code block rendering
     let html = text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
       .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
-      .replace(/^- ((?!\[).*)$/gm, '<li>$1</li>') // Regular list items (not checkboxes)
+      .replace(/^- (.*$)/gm, '<li>$1</li>')
       .replace(/^(\d+)\. (.*$)/gm, '<li>$1. $2</li>')
       .replace(/\n/g, '<br>');
 
@@ -297,53 +254,17 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
     return html;
   };
 
-  const renderInteractiveCheckboxes = (text: string) => {
-    const lines = text.split('\n');
-    return lines.map((line, index) => {
-      // Match checkbox patterns: - [ ] or - [x] or - [X]
-      const checkboxMatch = line.match(/^(-\s*)\[([xX\s])\]\s+(.+)$/);
-      
-      if (checkboxMatch) {
-        const prefix = checkboxMatch[1];
-        const isChecked = checkboxMatch[2].toLowerCase() === 'x';
-        const taskTitle = checkboxMatch[3];
-        
-        // Find matching task from linked tasks
-        const matchingTask = linkedTasks.find(task => task.title === taskTitle);
-        const actualChecked = matchingTask ? matchingTask.completed : isChecked;
-        
-        return (
-          <div key={index} className="flex items-center gap-2 my-1">
-            <span className="text-muted-foreground">{prefix}</span>
-            <Checkbox
-              checked={actualChecked}
-              onCheckedChange={(checked) => {
-                if (matchingTask && onToggleTask) {
-                  onToggleTask(matchingTask.id);
-                } else if (!matchingTask && onCreateTask && note) {
-                  // Create new task if it doesn't exist
-                  onCreateTask(taskTitle, 'medium', note.id, checked as boolean);
-                }
-              }}
-              className="mr-1"
-            />
-            <span className={actualChecked ? 'line-through text-muted-foreground' : ''}>
-              {taskTitle}
-            </span>
-          </div>
-        );
-      }
-      
-      // Regular line - apply basic markdown
-      const processedLine = line
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-      
-      return (
-        <div key={index} dangerouslySetInnerHTML={{ __html: processedLine || '<br>' }} />
-      );
-    });
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return '🔴';
+      case 'medium':
+        return '🟡';
+      case 'low':
+        return '🟢';
+      default:
+        return '⚪';
+    }
   };
 
   // Keyboard shortcuts for editor
@@ -388,7 +309,7 @@ export const EnhancedNoteEditor: React.FC<EnhancedNoteEditorProps> = ({ note, on
           <Edit3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <h2 className="text-xl font-semibold mb-2">Select a note to edit</h2>
           <p className="text-sm">Choose a note from the sidebar or create a new one</p>
-          <p className="text-xs mt-2">⌘N to create a new note • Use "- [ ] task" to create tasks</p>
+          <p className="text-xs mt-2">⌘N to create a new note • ⌘` to add code block</p>
         </div>
       </div>
     );
