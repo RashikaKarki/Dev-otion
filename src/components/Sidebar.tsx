@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center">
             <Hash className="h-4 w-4 text-primary-foreground font-bold" />
           </div>
-          <h1 className="text-lg font-semibold gradient-text">DevNotes</h1>
+          <h1 className="text-lg font-semibold gradient-text">Dev-otion</h1>
         </div>
         
       </div>
