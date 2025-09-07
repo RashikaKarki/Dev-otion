@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
-import { NoteEditor } from './NoteEditor';
+import { EnhancedNoteEditor } from './EnhancedNoteEditor';
 import { TaskManager } from './TaskManager';
 import { MindMapViewer } from './MindMapViewer';
 import { CommandPalette } from './CommandPalette';
@@ -148,7 +148,7 @@ export const DevWorkspace = () => {
       
       <main className="flex-1 flex flex-col overflow-hidden">
         {activeView === 'notes' && (
-          <NoteEditor
+          <EnhancedNoteEditor
             note={activeNote}
             onNoteUpdate={updateNote}
           />
