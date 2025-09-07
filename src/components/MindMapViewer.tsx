@@ -11,6 +11,7 @@ import {
   Hash,
   Lightbulb
 } from 'lucide-react';
+import { InteractiveMindMap } from './InteractiveMindMap';
 import mindMapPlaceholder from '@/assets/mind-map-placeholder.jpg';
 
 interface Note {
@@ -146,42 +147,14 @@ export const MindMapViewer: React.FC<MindMapViewerProps> = ({ notes, activeNote 
       <div className="flex-1 flex overflow-hidden">
         {/* Mind Map Display */}
         <div className="flex-1 p-6">
-          {notes.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-muted-foreground max-w-md">
-                <Brain className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-xl font-semibold mb-2">No notes to visualize</h3>
-                <p className="text-sm mb-4">
-                  Create some notes with tags to see them connected in a mind map
-                </p>
-                <p className="text-xs">
-                  Mind maps help you visualize relationships between your ideas and concepts
-                </p>
-              </div>
-            </div>
-          ) : !mindMapUrl ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-muted-foreground max-w-md">
-                <Sparkles className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-xl font-semibold mb-2">Ready to generate</h3>
-                <p className="text-sm mb-4">
-                  Click "Generate Map" to create a visual representation of your notes
-                </p>
-                <Button onClick={generateMindMap} className="bg-primary hover:bg-primary/90">
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Generate Mind Map
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="h-full">
-              <img 
-                src={mindMapUrl} 
-                alt="Mind Map" 
-                className="w-full h-full object-contain rounded-lg border border-border"
-              />
-            </div>
-          )}
+          <InteractiveMindMap 
+            notes={notes} 
+            activeNote={activeNote}
+            onNoteSelect={(noteId) => {
+              console.log('Selected note:', noteId);
+              // Add navigation logic here if needed
+            }}
+          />
         </div>
 
         {/* Sidebar Info */}
